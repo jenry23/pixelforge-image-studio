@@ -198,10 +198,11 @@ irreconcilable.
 ## Tests
 
 ```bash
-./vendor/bin/pest                                     # 157 tests
-npx playwright test --project=ui                      # 13 browser tests
+./vendor/bin/pest                                     # 220 tests, 748 assertions
+npx playwright test --project=ui                      # 42 browser tests
 PIXELFORGE_LIVE=1 npx playwright test --project=live  # real API, needs a tunnel
 php artisan pixelforge:verify-ledger                  # proves the money adds up
+tests/concurrency/run.sh                              # parallel workers; opt-in
 ```
 
 The Playwright suites run against a real server and a real database; fixture

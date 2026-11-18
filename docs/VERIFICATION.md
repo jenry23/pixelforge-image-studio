@@ -93,10 +93,12 @@ tests** (`npx playwright test --project=ui`).
 - The in-flight gate releases **without making an HTTP call** and **without
   consuming retry budget**
 - In-flight counted account-wide, since the provider's limits are per account
+  (advisory only: the count is unsynchronised, so parallel workers can exceed it)
 - Budget exhausted + outcome unknown → `unknown`, **hold kept**, resolver dispatched
 - Budget exhausted + outcome known → `rejected`, hold released
-- `ResolveUnknownGeneration` replays the key and adopts whatever it finds; fails
-  closed and releases the hold when its window closes
+- `ResolveUnknownGeneration` replays the key and adopts whatever it finds; when
+  its window closes it stops replaying and parks the generation as `unresolved`,
+  **keeping the hold** for an operator rather than guessing that it failed
 - A generation already finished by a webhook is never re-submitted
 
 ### Credits
