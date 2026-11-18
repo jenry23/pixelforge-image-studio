@@ -20,6 +20,8 @@ class GenerationResource extends JsonResource
 
             'prompt' => $this->prompt,
             'size' => $this->size->value,
+            'dimensions' => str_replace('x', ' x ', $this->size->value),
+            'total_tokens' => $this->usage['total_tokens'] ?? null,
             'quality' => $this->quality->value,
             'reference_images' => $this->reference_images,
 

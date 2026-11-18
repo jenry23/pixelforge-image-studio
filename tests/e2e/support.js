@@ -44,7 +44,7 @@ export async function chooseOption(page, group, option) {
 
 /** The first generation row on the history page. */
 export function firstRow(page) {
-    return page.locator('article').first()
+    return page.locator('tbody tr').first()
 }
 
 /** Read a money figure out of the page as an exact number of nanodollars. */

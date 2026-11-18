@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Str;
 
 test('profile page is displayed', function () {
     $user = User::factory()->create();
@@ -82,4 +83,31 @@ test('correct password must be provided to delete account', function () {
         ->assertRedirect('/profile');
 
     $this->assertNotNull($user->fresh());
+});
+
+test('deleting an account does not resurrect the user row', function () {
+    // SessionGuard::logout() cycles the remember token, and saving a model
+    // whose exists flag is false inserts it again. Deleting before logging out
+    // is only safe while the token is already cleared.
+    $user = User::factory()->create(['remember_token' => Str::random(60)]);
+    $id = $user->getKey();
+
+    $this->actingAs($user)
+        ->delete('/profile', ['password' => 'password'])
+        ->assertRedirect('/');
+
+    expect(User::query()->whereKey($id)->exists())->toBeFalse();
+});
+
+test('a failed deletion keeps the user signed in', function () {
+    $user = User::factory()->create();
+
+    // A wrong password never reaches the delete at all.
+    $this->actingAs($user)
+        ->from('/profile')
+        ->delete('/profile', ['password' => 'nope'])
+        ->assertSessionHasErrors('password')
+        ->assertRedirect('/profile');
+
+    $this->assertAuthenticatedAs($user->fresh());
 });

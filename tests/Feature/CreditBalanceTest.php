@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Actions\CreateGeneration;
+use App\Actions\LedgerWriter;
 use App\Enums\GenerationQuality;
 use App\Enums\GenerationSize;
 use App\Enums\GenerationStatus;
@@ -13,7 +14,11 @@ use App\Models\CreditTransaction;
 use App\Models\Generation;
 use App\Models\User;
 use App\Pixelforge\Money;
+use App\Pixelforge\PricingCatalogRepository;
+use App\Pixelforge\PricingEngine;
+use App\Support\CreditPacks;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\ProviderPayload;
 
@@ -284,5 +289,187 @@ describe('blocking generation when unaffordable', function () {
         ])->assertRedirect(route('generations.index'));
 
         expect(Generation::query()->count())->toBe(1);
+    });
+});
+
+describe('the credit pack list', function () {
+    it('accepts every advertised pack', function () {
+        $user = User::factory()->create();
+
+        foreach (CreditPacks::all() as $pack) {
+            $this->actingAs($user)
+                ->post(route('credits.store'), ['amount_usd' => $pack])
+                ->assertRedirect()
+                ->assertSessionHasNoErrors();
+        }
+
+        // 1.00 + 5.00 + 20.00 on top of the welcome credit path (none here).
+        expect($user->refresh()->balance()->toUsdString())->toBe('26.000000000');
+    });
+
+    it('rejects an amount that is not a pack', function () {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->post(route('credits.store'), ['amount_usd' => '3.00'])
+            ->assertSessionHasErrors('amount_usd');
+
+        expect($user->refresh()->balance()->isZero())->toBeTrue();
+    });
+
+    it('requires an authenticated user', function () {
+        $this->post(route('credits.store'), ['amount_usd' => '5.00'])
+            ->assertRedirect(route('login'));
+    });
+
+    it('writes the ledger row and the cached balance in one transaction', function () {
+        $user = User::factory()->create();
+
+        // If the two writes were not atomic, a failure between them would leave
+        // the cache disagreeing with the ledger. Force a failure after the
+        // ledger row is written and assert nothing survives.
+        DB::beginTransaction();
+        try {
+            app(LedgerWriter::class)->forUser(
+                $user->getKey(),
+                function (User $locked) {
+                    app(LedgerWriter::class)->topup(
+                        $locked,
+                        Money::fromUsdString('5.00'),
+                        'Rolled back',
+                    );
+
+                    throw new RuntimeException('boom');
+                }
+            );
+        } catch (RuntimeException) {
+            // expected
+        } finally {
+            DB::rollBack();
+        }
+
+        $user->refresh();
+
+        expect($user->balance()->isZero())->toBeTrue()
+            ->and(CreditTransaction::query()->where('user_id', $user->getKey())->count())->toBe(0);
+    });
+
+    it('does not let sequential top-ups overwrite each other', function () {
+        $user = User::factory()->create();
+
+        // The cached balance is incremented relative to its current value
+        // (SET balance = balance + x) under a row lock, so no top-up can read a
+        // stale total and clobber another.
+        foreach (range(1, 12) as $ignored) {
+            $this->actingAs($user)->post(route('credits.store'), ['amount_usd' => '1.00']);
+        }
+
+        $user->refresh();
+        $folded = $user->foldLedger();
+
+        expect($user->balance()->toUsdString())->toBe('12.000000000')
+            ->and($folded['balance']->nanodollars)->toBe($user->balance_nanodollars)
+            ->and(CreditTransaction::query()->where('user_id', $user->getKey())->count())->toBe(12);
+    });
+});
+
+describe('the quoted estimate and the credits reserved', function () {
+    it('reserves exactly the maximum the estimate endpoint quoted', function () {
+        $user = fundUser(User::factory()->create(), '5.00');
+
+        $inputs = [
+            'prompt' => 'a brass astrolabe resting on dark blue velvet',
+            'size' => GenerationSize::Landscape->value,
+            'quality' => GenerationQuality::High->value,
+        ];
+
+        // What the live preview tells the user.
+        $quoted = $this->actingAs($user)
+            ->getJson(route('generations.estimate', $inputs + ['reference_image_count' => 0]))
+            ->assertOk()
+            ->json('estimate.charge.max.nanodollars');
+
+        // What submitting the same inputs actually reserves.
+        $this->actingAs($user)->post(route('generations.store'), $inputs)->assertRedirect();
+
+        $generation = Generation::query()->latest('created_at')->first();
+
+        expect($generation->hold_nanodollars)->toBe($quoted)
+            ->and($generation->estimated_charge_max_nanodollars)->toBe($quoted)
+            ->and($user->refresh()->held()->nanodollars)->toBe($quoted);
+    });
+
+    it('prices from the submitted inputs, not from anything the client sends', function () {
+        $user = fundUser(User::factory()->create(), '5.00');
+
+        // A client-supplied price must be ignored entirely.
+        $this->actingAs($user)->post(route('generations.store'), [
+            'prompt' => 'a short prompt',
+            'size' => GenerationSize::Square->value,
+            'quality' => GenerationQuality::Low->value,
+        ])->assertRedirect();
+
+        $generation = Generation::query()->latest('created_at')->first();
+
+        $expected = app(PricingEngine::class)->estimate(
+            catalog: app(PricingCatalogRepository::class)->get(),
+            prompt: 'a short prompt',
+            quality: GenerationQuality::Low,
+            size: GenerationSize::Square,
+            referenceImageCount: 0,
+        );
+
+        expect($generation->estimated_charge_max_nanodollars)
+            ->toBe($expected->chargeMax->nanodollars)
+            ->and($generation->hold_nanodollars)->toBe($expected->chargeMax->nanodollars);
+    });
+
+    it('counts only the reference images that survived validation', function () {
+        $user = fundUser(User::factory()->create(), '5.00');
+
+        // Blank rows are stripped before pricing, so they must not be billed.
+        $this->actingAs($user)->post(route('generations.store'), [
+            'prompt' => 'a prompt with one usable reference',
+            'size' => GenerationSize::Square->value,
+            'quality' => GenerationQuality::Low->value,
+            'reference_images' => ['https://example.com/a.png', '', '   '],
+        ])->assertRedirect();
+
+        $generation = Generation::query()->latest('created_at')->first();
+
+        $expected = app(PricingEngine::class)->estimate(
+            catalog: app(PricingCatalogRepository::class)->get(),
+            prompt: 'a prompt with one usable reference',
+            quality: GenerationQuality::Low,
+            size: GenerationSize::Square,
+            referenceImageCount: 1,
+        );
+
+        expect($generation->reference_images)->toHaveCount(1)
+            ->and($generation->estimated_charge_max_nanodollars)
+            ->toBe($expected->chargeMax->nanodollars);
+    });
+
+    it('allows an empty prompt on the estimate endpoint for the live preview', function () {
+        $user = fundUser(User::factory()->create(), '5.00');
+
+        $this->actingAs($user)
+            ->getJson(route('generations.estimate', [
+                'prompt' => '',
+                'size' => GenerationSize::Square->value,
+                'quality' => GenerationQuality::Medium->value,
+            ]))
+            ->assertOk()
+            ->assertJsonStructure(['estimate' => ['charge' => ['min', 'expected', 'max'], 'breakdown']]);
+    });
+
+    it('still rejects an empty prompt on submission', function () {
+        $user = fundUser(User::factory()->create(), '5.00');
+
+        $this->actingAs($user)->post(route('generations.store'), [
+            'prompt' => '',
+            'size' => GenerationSize::Square->value,
+            'quality' => GenerationQuality::Low->value,
+        ])->assertSessionHasErrors('prompt');
     });
 });

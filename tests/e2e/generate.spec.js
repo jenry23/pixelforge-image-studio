@@ -143,7 +143,7 @@ test.describe('the admin report', () => {
         await expect(page.getByText('Charged to users')).toBeVisible()
         await expect(page.getByText('Paid to Pixelforge')).toBeVisible()
         await expect(page.getByText('Profit', { exact: true }).first()).toBeVisible()
-        await expect(page.getByRole('columnheader', { name: 'Pixelforge says' })).toBeVisible()
+        await expect(page.getByRole('columnheader', { name: 'Pixelforge cost' })).toBeVisible()
         await expect(page.getByRole('columnheader', { name: 'Delta' })).toBeVisible()
     })
 })

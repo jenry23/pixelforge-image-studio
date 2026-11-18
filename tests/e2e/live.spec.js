@@ -30,7 +30,7 @@ test.describe(live ? 'against the real Pixelforge API' : 'live tests (skipped)',
             quality: 'Low',
         })
 
-        const row = page.locator('article').first()
+        const row = page.locator('tbody tr').first()
 
         // While it runs, the quoted range is shown and credit is reserved.
         await expect(row.getByText('Estimated')).toBeVisible()
@@ -63,7 +63,7 @@ test.describe(live ? 'against the real Pixelforge API' : 'live tests (skipped)',
             quality: 'Low',
         })
 
-        const row = page.locator('article').first()
+        const row = page.locator('tbody tr').first()
 
         await expect(row.getByText('Failed')).toBeVisible({ timeout: 150_000 })
         await expect(row.getByText('Free')).toBeVisible()
@@ -84,7 +84,7 @@ test.describe(live ? 'against the real Pixelforge API' : 'live tests (skipped)',
             quality: 'Low',
         })
 
-        const row = page.locator('article').first()
+        const row = page.locator('tbody tr').first()
         await expect(row.getByText('Charged')).toBeVisible({ timeout: 150_000 })
 
         // The ledger is the real assertion: every event arrived twice, and the

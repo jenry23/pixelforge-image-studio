@@ -6,6 +6,7 @@ namespace App\Http\Requests;
 
 use App\Enums\GenerationQuality;
 use App\Enums\GenerationSize;
+use App\Support\GenerationLimits;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,17 +15,17 @@ class StoreGenerationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'prompt' => ['required', 'string', 'min:1', 'max:4000'],
+            'prompt' => ['required', 'string', 'min:1', 'max:'.GenerationLimits::PROMPT_MAX_CHARACTERS],
 
             'size' => ['required', Rule::enum(GenerationSize::class)],
             'quality' => ['required', Rule::enum(GenerationQuality::class)],
 
-            'reference_images' => ['array', 'max:4'],
+            'reference_images' => ['array', 'max:'.GenerationLimits::REFERENCE_IMAGES_MAX],
             'reference_images.*' => [
                 'required',
                 'string',
                 'url:http,https',
-                'max:2048',
+                'max:'.GenerationLimits::REFERENCE_IMAGE_URL_MAX,
             ],
         ];
     }
@@ -32,8 +33,8 @@ class StoreGenerationRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'prompt.max' => 'Pixelforge accepts prompts up to 4,000 characters.',
-            'reference_images.max' => 'Pixelforge accepts at most 4 reference images.',
+            'prompt.max' => 'Pixelforge accepts prompts up to '.number_format(GenerationLimits::PROMPT_MAX_CHARACTERS).' characters.',
+            'reference_images.max' => 'Pixelforge accepts at most '.GenerationLimits::REFERENCE_IMAGES_MAX.' reference images.',
             'reference_images.*.url' => 'Each reference image must be an http or https URL.',
         ];
     }

@@ -9,16 +9,25 @@ use App\Models\Generation;
 use App\Pixelforge\Money;
 use App\Pixelforge\PixelforgeClient;
 use Carbon\CarbonImmutable;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 final readonly class BillingReport
 {
+    public const int DAYS_PER_PAGE = 6;
+
+    public const int USERS_PER_PAGE = 8;
+
     public function __construct(private PixelforgeClient $client) {}
 
-    public function build(CarbonImmutable $startDate, CarbonImmutable $endDate): array
-    {
+    public function build(
+        CarbonImmutable $startDate,
+        CarbonImmutable $endDate,
+        int $daysPage = 1,
+        int $usersPage = 1,
+    ): array {
         $start = $startDate->toDateString();
         $end = $endDate->toDateString();
 
@@ -50,7 +59,6 @@ final readonly class BillingReport
                 'credit_spend' => $this->money($spend),
                 'provider_cost' => $this->money($cost),
                 'profit' => $this->money($spend->minus($cost)),
-
                 'provider_reported_cost' => $reported === null ? null : $this->money($reported),
                 'delta' => $delta === null ? null : $this->money($delta),
                 'reconciled' => $matches,
@@ -62,11 +70,14 @@ final readonly class BillingReport
             $totals['provider_reported'] += $reported?->nanodollars ?? 0;
         }
 
+        $days = array_reverse($days);
+
         return [
             'start_date' => $start,
             'end_date' => $end,
-            'days' => $days,
-            'users' => $this->perUserTotals($start, $end),
+            'period_label' => $this->periodLabel($startDate, $endDate),
+            'days' => $this->paginateRows($days, $daysPage, self::DAYS_PER_PAGE, 'days_page'),
+            'users' => $this->perUserTotals($start, $end, $usersPage),
             'totals' => [
                 'generations' => $totals['generations'],
                 'credit_spend' => $this->money(Money::fromNanodollars($totals['spend'])),
@@ -83,6 +94,37 @@ final readonly class BillingReport
                 'available' => $providerUsage !== null,
                 'error' => $usageError,
                 'matches' => $providerUsage === null ? null : ! $anyDiscrepancy,
+            ],
+        ];
+    }
+
+    private function paginateRows(array $rows, int $page, int $perPage, string $pageName): array
+    {
+        $page = max(1, $page);
+
+        $paginator = new LengthAwarePaginator(
+            array_slice($rows, ($page - 1) * $perPage, $perPage),
+            count($rows),
+            $perPage,
+            $page,
+            ['pageName' => $pageName],
+        );
+
+        return $this->withMeta(array_values($paginator->items()), $paginator);
+    }
+
+    private function withMeta(array $data, LengthAwarePaginator $paginator): array
+    {
+        return [
+            'data' => $data,
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'links' => [],
             ],
         ];
     }
@@ -120,9 +162,9 @@ final readonly class BillingReport
             ->all();
     }
 
-    private function perUserTotals(string $start, string $end): array
+    private function perUserTotals(string $start, string $end, int $page): array
     {
-        return Generation::query()
+        $paginator = Generation::query()
             ->where('generations.status', GenerationStatus::Succeeded)
             ->whereBetween('billed_on_utc', [$start, $end])
             ->join('users', 'users.id', '=', 'generations.user_id')
@@ -132,17 +174,29 @@ final readonly class BillingReport
             ->selectRaw('COALESCE(SUM(charged_nanodollars), 0) as spend')
             ->selectRaw('COALESCE(SUM(provider_cost_nanodollars), 0) as cost')
             ->orderByDesc(DB::raw('SUM(charged_nanodollars)'))
-            ->get()
-            ->map(fn ($row): array => [
-                'id' => $row->id,
-                'name' => $row->name,
-                'email' => $row->email,
-                'generations' => (int) $row->generations,
-                'credit_spend' => $this->money(Money::fromNanodollars((int) $row->spend)),
-                'provider_cost' => $this->money(Money::fromNanodollars((int) $row->cost)),
-                'profit' => $this->money(Money::fromNanodollars((int) $row->spend - (int) $row->cost)),
-            ])
-            ->all();
+            ->orderBy('users.id')
+            ->paginate(perPage: self::USERS_PER_PAGE, pageName: 'users_page', page: max(1, $page));
+
+        $data = $paginator->getCollection()->map(fn ($row): array => [
+            'id' => $row->id,
+            'name' => $row->name,
+            'email' => $row->email,
+            'generations' => (int) $row->generations,
+            'credit_spend' => $this->money(Money::fromNanodollars((int) $row->spend)),
+            'provider_cost' => $this->money(Money::fromNanodollars((int) $row->cost)),
+            'profit' => $this->money(Money::fromNanodollars((int) $row->spend - (int) $row->cost)),
+        ])->values()->all();
+
+        return $this->withMeta($data, $paginator);
+    }
+
+    private function periodLabel(CarbonImmutable $start, CarbonImmutable $end): string
+    {
+        if ($start->year === $end->year && $start->month === $end->month) {
+            return $start->format('M j').'–'.$end->format('j, Y').', UTC';
+        }
+
+        return $start->format('M j').' – '.$end->format('M j, Y').', UTC';
     }
 
     private function datesBetween(CarbonImmutable $start, CarbonImmutable $end): array

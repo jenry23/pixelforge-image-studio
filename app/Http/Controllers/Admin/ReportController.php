@@ -18,6 +18,8 @@ class ReportController extends Controller
         $validated = $request->validate([
             'start_date' => ['nullable', 'date_format:Y-m-d'],
             'end_date' => ['nullable', 'date_format:Y-m-d'],
+            'days_page' => ['nullable', 'integer', 'min:1'],
+            'users_page' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $end = isset($validated['end_date'])
@@ -33,7 +35,12 @@ class ReportController extends Controller
         }
 
         return Inertia::render('Admin/Report', [
-            'report' => $report->build($start, $end),
+            'report' => $report->build(
+                $start,
+                $end,
+                (int) ($validated['days_page'] ?? 1),
+                (int) ($validated['users_page'] ?? 1),
+            ),
         ]);
     }
 }

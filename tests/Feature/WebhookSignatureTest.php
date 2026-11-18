@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Generation;
 use App\Models\WebhookEvent;
+use App\Pixelforge\WebhookSignature;
 use Tests\Support\ProviderPayload;
 
 beforeEach(function () {
@@ -104,3 +105,63 @@ it('is reachable without a CSRF token', function () {
     deliverWebhook(ProviderPayload::eventFor($this->generation, 'processing'))
         ->assertNoContent();
 })->group('csrf');
+
+describe('payload shape, after the signature verifies', function () {
+    it('rejects a body that is not a JSON object', function () {
+        // Correctly signed, but a JSON array rather than an event object.
+        deliverWebhook([], rawBodyOverride: json_encode([1, 2, 3]))->assertStatus(400);
+
+        expect(WebhookEvent::query()->count())->toBe(0);
+    });
+
+    it('rejects a body with no event id', function () {
+        $event = ProviderPayload::eventFor($this->generation, 'succeeded');
+        unset($event['id']);
+
+        // The id is never taken from the unsigned header, so this must fail.
+        deliverWebhook($event)->assertStatus(400);
+
+        expect(WebhookEvent::query()->count())->toBe(0);
+    });
+
+    it('rejects a non-string event type instead of coercing it', function () {
+        $event = ProviderPayload::eventFor($this->generation, 'succeeded');
+        $event['type'] = ['generation.succeeded'];
+
+        deliverWebhook($event)->assertStatus(400);
+
+        expect(WebhookEvent::query()->count())->toBe(0);
+    });
+
+    it('rejects an empty event type', function () {
+        $event = ProviderPayload::eventFor($this->generation, 'succeeded');
+        $event['type'] = '   ';
+
+        deliverWebhook($event)->assertStatus(400);
+    });
+
+    it('ignores the unsigned id header entirely', function () {
+        // Headers are not covered by the HMAC, so a mutated id header must not
+        // be able to slip a duplicate past deduplication.
+        $event = ProviderPayload::eventFor($this->generation, 'succeeded', eventId: 'evt_signed_id');
+
+        deliverWebhook($event)->assertNoContent();
+        test()->call(
+            method: 'POST',
+            uri: '/webhooks/pixelforge',
+            server: [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_PIXELFORGE_SIGNATURE' => WebhookSignature::sign(
+                    json_encode($event, JSON_THROW_ON_ERROR),
+                    (string) config('services.pixelforge.webhook_secret'),
+                ),
+                'HTTP_PIXELFORGE_EVENT_ID' => 'evt_attacker_supplied',
+            ],
+            content: json_encode($event, JSON_THROW_ON_ERROR),
+        )->assertNoContent();
+
+        // One record, keyed on the id inside the signed body.
+        expect(WebhookEvent::query()->count())->toBe(1)
+            ->and(WebhookEvent::query()->first()->event_id)->toBe('evt_signed_id');
+    });
+});

@@ -62,7 +62,7 @@ describe('daily totals', function () {
         fakeUsage(['2026-11-17' => '0.011707500']);
 
         $report = buildReport('2026-11-17', '2026-11-17');
-        $day = $report['days'][0];
+        $day = $report['days']['data'][0];
 
         expect($day['date'])->toBe('2026-11-17')
             ->and($day['generations'])->toBe(1)
@@ -78,10 +78,11 @@ describe('daily totals', function () {
 
         $report = buildReport('2026-11-15', '2026-11-18');
 
-        expect($report['days'])->toHaveCount(4)
-            ->and($report['days'][0]['date'])->toBe('2026-11-15')
-            ->and($report['days'][0]['generations'])->toBe(0)
-            ->and($report['days'][0]['credit_spend']['exact'])->toBe('0.000000000');
+        expect($report['days']['data'])->toHaveCount(4)
+            // Newest first, as the billing table shows them.
+            ->and($report['days']['data'][0]['date'])->toBe('2026-11-18')
+            ->and($report['days']['data'][0]['generations'])->toBe(0)
+            ->and($report['days']['data'][0]['credit_spend']['exact'])->toBe('0.000000000');
     });
 
     it('sums many sub-cent generations without drift', function () {
@@ -96,7 +97,7 @@ describe('daily totals', function () {
         expect($report['totals']['provider_cost']['exact'])->toBe('3.512250000')
             ->and($report['totals']['credit_spend']['exact'])->toBe('4.390312500')
             ->and($report['totals']['profit']['exact'])->toBe('0.878062500')
-            ->and($report['days'][0]['reconciled'])->toBeTrue();
+            ->and($report['days']['data'][0]['reconciled'])->toBeTrue();
     });
 
     it('excludes failed generations entirely', function () {
@@ -125,7 +126,7 @@ describe('the provider\'s UTC billing window', function () {
         fakeUsage(['2026-11-18' => '0.000000000', '2026-11-19' => '0.011707500']);
 
         $report = buildReport('2026-11-18', '2026-11-19');
-        $byDate = collect($report['days'])->keyBy('date');
+        $byDate = collect($report['days']['data'])->keyBy('date');
 
         // The provider bills this on the 19th. So must we.
         expect($byDate['2026-11-18']['generations'])->toBe(0)
@@ -142,8 +143,8 @@ describe('reconciliation against GET /v1/usage', function () {
 
         $report = buildReport('2026-11-17', '2026-11-17');
 
-        expect($report['days'][0]['delta']['exact'])->toBe('0.000000000')
-            ->and($report['days'][0]['reconciled'])->toBeTrue()
+        expect($report['days']['data'][0]['delta']['exact'])->toBe('0.000000000')
+            ->and($report['days']['data'][0]['reconciled'])->toBeTrue()
             ->and($report['reconciliation']['available'])->toBeTrue()
             ->and($report['reconciliation']['matches'])->toBeTrue();
     });
@@ -157,8 +158,8 @@ describe('reconciliation against GET /v1/usage', function () {
 
         $report = buildReport('2026-11-17', '2026-11-17');
 
-        expect($report['days'][0]['reconciled'])->toBeFalse()
-            ->and($report['days'][0]['delta']['exact'])->toBe('0.011707500')
+        expect($report['days']['data'][0]['reconciled'])->toBeFalse()
+            ->and($report['days']['data'][0]['delta']['exact'])->toBe('0.011707500')
             ->and($report['reconciliation']['matches'])->toBeFalse();
     });
 
@@ -169,8 +170,8 @@ describe('reconciliation against GET /v1/usage', function () {
         $report = buildReport('2026-11-17', '2026-11-17');
 
         // Exact integer comparison, not a tolerance.
-        expect($report['days'][0]['reconciled'])->toBeFalse()
-            ->and($report['days'][0]['delta']['exact'])->toBe('0.000000001');
+        expect($report['days']['data'][0]['reconciled'])->toBeFalse()
+            ->and($report['days']['data'][0]['delta']['exact'])->toBe('0.000000001');
     });
 
     it('says so explicitly when the usage endpoint is unavailable', function () {
@@ -186,9 +187,9 @@ describe('reconciliation against GET /v1/usage', function () {
         expect($report['reconciliation']['available'])->toBeFalse()
             ->and($report['reconciliation']['matches'])->toBeNull()
             ->and($report['reconciliation']['error'])->not->toBeNull()
-            ->and($report['days'][0]['provider_reported_cost'])->toBeNull()
-            ->and($report['days'][0]['delta'])->toBeNull()
-            ->and($report['days'][0]['reconciled'])->toBeNull()
+            ->and($report['days']['data'][0]['provider_reported_cost'])->toBeNull()
+            ->and($report['days']['data'][0]['delta'])->toBeNull()
+            ->and($report['days']['data'][0]['reconciled'])->toBeNull()
             ->and($report['totals']['provider_cost']['exact'])->toBe('0.011707500');
     });
 
@@ -215,12 +216,12 @@ describe('per-user totals', function () {
 
         $report = buildReport('2026-11-17', '2026-11-17');
 
-        expect($report['users'])->toHaveCount(2)
-            ->and($report['users'][0]['name'])->toBe('Alice')
-            ->and($report['users'][0]['generations'])->toBe(2)
-            ->and($report['users'][0]['credit_spend']['exact'])->toBe('0.029268750')
-            ->and($report['users'][1]['name'])->toBe('Bob')
-            ->and($report['users'][1]['credit_spend']['exact'])->toBe('0.014634375');
+        expect($report['users']['data'])->toHaveCount(2)
+            ->and($report['users']['data'][0]['name'])->toBe('Alice')
+            ->and($report['users']['data'][0]['generations'])->toBe(2)
+            ->and($report['users']['data'][0]['credit_spend']['exact'])->toBe('0.029268750')
+            ->and($report['users']['data'][1]['name'])->toBe('Bob')
+            ->and($report['users']['data'][1]['credit_spend']['exact'])->toBe('0.014634375');
     });
 
     it('spans users and days together', function () {
@@ -235,7 +236,7 @@ describe('per-user totals', function () {
         $report = buildReport('2026-11-16', '2026-11-17');
 
         expect($report['totals']['generations'])->toBe(2)
-            ->and($report['users'])->toHaveCount(2)
+            ->and($report['users']['data'])->toHaveCount(2)
             ->and($report['totals']['credit_spend']['exact'])->toBe('0.029268750');
     });
 });
@@ -258,5 +259,78 @@ describe('access', function () {
 
     it('requires signing in', function () {
         $this->get(route('admin.report'))->assertRedirect(route('login'));
+    });
+});
+
+describe('pagination', function () {
+    it('pages the daily table while totals still cover the whole period', function () {
+        // One billed day inside a fourteen-day window.
+        billedOn('2026-11-18', $this->admin, 11_707_500, 14_634_375);
+        fakeUsage(['2026-11-18' => '0.011707500']);
+
+        $start = CarbonImmutable::parse('2026-11-05', 'UTC');
+        $end = CarbonImmutable::parse('2026-11-18', 'UTC');
+
+        $first = app(BillingReport::class)->build($start, $end, daysPage: 1);
+        $second = app(BillingReport::class)->build($start, $end, daysPage: 2);
+
+        expect($first['days']['data'])->toHaveCount(BillingReport::DAYS_PER_PAGE)
+            ->and($first['days']['meta']['total'])->toBe(14)
+            ->and($first['days']['meta']['last_page'])->toBe(3)
+            ->and($first['days']['meta']['current_page'])->toBe(1)
+            ->and($second['days']['meta']['current_page'])->toBe(2);
+
+        // The summary and the reconciliation describe the period, not the page.
+        expect($second['totals']['credit_spend']['exact'])
+            ->toBe($first['totals']['credit_spend']['exact'])
+            ->and($second['totals']['provider_cost']['exact'])
+            ->toBe($first['totals']['provider_cost']['exact'])
+            ->and($second['reconciliation'])->toBe($first['reconciliation']);
+    });
+
+    it('keeps a discrepancy visible from any page of the daily table', function () {
+        // The mismatch is on a day that only appears on the first page.
+        billedOn('2026-11-18', $this->admin, 11_707_500, 14_634_375);
+        fakeUsage(['2026-11-18' => '0.023415000']);
+
+        $start = CarbonImmutable::parse('2026-11-05', 'UTC');
+        $end = CarbonImmutable::parse('2026-11-18', 'UTC');
+
+        foreach ([1, 2, 3] as $page) {
+            $report = app(BillingReport::class)->build($start, $end, daysPage: $page);
+
+            expect($report['reconciliation']['matches'])->toBeFalse()
+                ->and($report['totals']['delta']['exact'])->toBe('0.011707500');
+        }
+    });
+
+    it('pages the two tables independently', function () {
+        $alice = User::factory()->create(['name' => 'Alice']);
+        billedOn('2026-11-18', $alice, 11_707_500, 14_634_375);
+        fakeUsage(['2026-11-18' => '0.011707500']);
+
+        $start = CarbonImmutable::parse('2026-11-05', 'UTC');
+        $end = CarbonImmutable::parse('2026-11-18', 'UTC');
+
+        // Moving the daily table to page 3 must not move the by-user table.
+        $report = app(BillingReport::class)->build($start, $end, daysPage: 3, usersPage: 1);
+
+        expect($report['days']['meta']['current_page'])->toBe(3)
+            ->and($report['users']['meta']['current_page'])->toBe(1)
+            ->and($report['users']['data'])->not->toBeEmpty();
+    });
+
+    it('keeps the requested UTC window on every page', function () {
+        fakeUsage(['2026-11-18' => '0.000000000']);
+
+        $start = CarbonImmutable::parse('2026-11-05', 'UTC');
+        $end = CarbonImmutable::parse('2026-11-18', 'UTC');
+
+        foreach ([1, 2, 3] as $page) {
+            $report = app(BillingReport::class)->build($start, $end, daysPage: $page);
+
+            expect($report['start_date'])->toBe('2026-11-05')
+                ->and($report['end_date'])->toBe('2026-11-18');
+        }
     });
 });

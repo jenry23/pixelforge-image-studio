@@ -12,6 +12,7 @@ interface Props {
     sizes: RadioOption[]
     qualities: RadioOption[]
     limits: { prompt_max_characters: number; reference_images_max: number }
+    creditPacks: string[]
     markupPercent: number
     initialEstimate: CostEstimate
     balance: BalanceSummary
@@ -133,7 +134,7 @@ function submit(): void {
             <div class="flex items-center gap-3">
                 <span class="text-sm text-[#9aa5b4]">Buy credits</span>
                 <form
-                    v-for="pack in ['1.00', '5.00', '20.00']"
+                    v-for="pack in props.creditPacks"
                     :key="pack"
                     :action="route('credits.store')"
                     method="post"
