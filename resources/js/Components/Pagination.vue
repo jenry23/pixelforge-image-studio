@@ -69,13 +69,13 @@ function currentQuery(): Record<string, string> {
         class="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
         :aria-label="`${nounPlural} pagination`"
     >
-        <p class="text-sm text-[#9aa5b4]">{{ rangeLabel }}</p>
+        <p class="text-sm text-[#c7d1e0]">{{ rangeLabel }}</p>
 
         <div v-if="last > 1" class="flex items-center gap-2">
             <button
                 type="button"
                 :disabled="current === 1"
-                class="rounded-lg border border-[#262d39] px-3.5 py-2 text-sm text-white transition-colors hover:border-[#8a9ffd]/60 disabled:cursor-not-allowed disabled:text-[#5e758c] disabled:hover:border-[#262d39]"
+                class="rounded-lg border border-[#3a4457] px-3.5 py-2 text-sm text-white transition-colors hover:border-[#8a9ffd]/60 disabled:cursor-not-allowed disabled:text-[#5e758c] disabled:hover:border-[#3a4457]"
                 @click="go(current - 1)"
             >
                 Previous
@@ -90,7 +90,7 @@ function currentQuery(): Record<string, string> {
                 :class="
                     page === current
                         ? 'border-[#8a9ffd] bg-[#8a9ffd] font-semibold text-[#0b1020]'
-                        : 'border-[#262d39] text-white hover:border-[#8a9ffd]/60'
+                        : 'border-[#3a4457] text-white hover:border-[#8a9ffd]/60'
                 "
                 @click="go(page)"
             >
@@ -100,7 +100,7 @@ function currentQuery(): Record<string, string> {
             <button
                 type="button"
                 :disabled="current === last"
-                class="rounded-lg border border-[#262d39] px-3.5 py-2 text-sm text-white transition-colors hover:border-[#8a9ffd]/60 disabled:cursor-not-allowed disabled:text-[#5e758c] disabled:hover:border-[#262d39]"
+                class="rounded-lg border border-[#3a4457] px-3.5 py-2 text-sm text-white transition-colors hover:border-[#8a9ffd]/60 disabled:cursor-not-allowed disabled:text-[#5e758c] disabled:hover:border-[#3a4457]"
                 @click="go(current + 1)"
             >
                 Next

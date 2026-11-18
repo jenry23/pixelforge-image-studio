@@ -66,27 +66,27 @@ const only = ['report']
         <p class="figure text-sm text-[#9aa5b4]">{{ report.period_label }}</p>
     </div>
 
-    <div class="mt-7 grid gap-5 sm:grid-cols-3">
-        <div class="rounded-xl border border-[#262d39] bg-[#0f1621] px-6 py-5">
-            <div class="text-[1.05rem] text-white">Charged to users</div>
-            <div class="figure mt-2 text-[1.9rem] text-measured">
+    <div class="mt-6 grid gap-5 sm:grid-cols-3">
+        <div class="rounded-xl border border-[#3a4457] bg-[#111927] px-6 py-4">
+            <div class="text-[1.05rem] text-[#dbe3ef]">Charged to users</div>
+            <div class="figure mt-1.5 text-[1.9rem] font-semibold text-measured">
                 ${{ report.totals.credit_spend.display }}
             </div>
         </div>
-        <div class="rounded-xl border border-[#262d39] bg-[#0f1621] px-6 py-5">
-            <div class="text-[1.05rem] text-white">Paid to Pixelforge</div>
-            <div class="figure mt-2 text-[1.9rem] text-white">
+        <div class="rounded-xl border border-[#3a4457] bg-[#111927] px-6 py-4">
+            <div class="text-[1.05rem] text-[#dbe3ef]">Paid to Pixelforge</div>
+            <div class="figure mt-1.5 text-[1.9rem] font-semibold text-white">
                 ${{ report.totals.provider_cost.display }}
             </div>
         </div>
-        <div class="rounded-xl border border-[#262d39] bg-[#0f1621] px-6 py-5">
-            <div class="text-[1.05rem] text-white">Profit</div>
-            <div class="figure mt-2 text-[1.9rem] text-ok">${{ report.totals.profit.display }}</div>
+        <div class="rounded-xl border border-[#3a4457] bg-[#111927] px-6 py-4">
+            <div class="text-[1.05rem] text-[#dbe3ef]">Profit</div>
+            <div class="figure mt-1.5 text-[1.9rem] font-semibold text-ok">${{ report.totals.profit.display }}</div>
         </div>
     </div>
 
     <div
-        class="mt-5 flex items-start gap-3 rounded-xl border px-5 py-4 text-[1.05rem]"
+        class="mt-5 flex items-start gap-3 rounded-xl border px-5 py-2 text-[1.05rem]"
         :class="{
             'border-ok/40 bg-ok/10 text-ok': report.reconciliation.matches === true,
             'border-fail/40 bg-fail/10 text-fail': report.reconciliation.matches === false,
@@ -122,56 +122,56 @@ const only = ['report']
         </div>
     </div>
 
-    <div class="mt-6 overflow-hidden rounded-xl border border-[#262d39] bg-[#0f1621]">
+    <div class="mt-4 overflow-hidden rounded-xl border border-[#3a4457] bg-[#111927]">
         <div class="overflow-x-auto">
             <table class="w-full min-w-[52rem] text-[0.95rem]">
                 <thead>
-                    <tr class="border-b border-[#262d39] text-[#9aa5b4]">
-                        <th scope="col" class="px-5 py-4 text-left font-medium">UTC day</th>
-                        <th scope="col" class="px-3 py-4 text-right font-medium">Images</th>
-                        <th scope="col" class="px-3 py-4 text-right font-medium">Charged</th>
-                        <th scope="col" class="px-3 py-4 text-right font-medium">Our cost</th>
-                        <th scope="col" class="px-3 py-4 text-right font-medium">Pixelforge cost</th>
-                        <th scope="col" class="px-3 py-4 text-right font-medium">Delta</th>
-                        <th scope="col" class="px-5 py-4 text-right font-medium">Profit</th>
+                    <tr class="border-b border-[#39435a] text-[#c7d1e0]">
+                        <th scope="col" class="px-5 py-3 text-left font-medium">UTC day</th>
+                        <th scope="col" class="px-3 py-3 text-right font-medium">Images</th>
+                        <th scope="col" class="px-3 py-3 text-right font-medium">Charged</th>
+                        <th scope="col" class="px-3 py-3 text-right font-medium">Our cost</th>
+                        <th scope="col" class="px-3 py-3 text-right font-medium">Pixelforge cost</th>
+                        <th scope="col" class="px-3 py-3 text-right font-medium">Delta</th>
+                        <th scope="col" class="px-5 py-3 text-right font-medium">Profit</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr
                         v-for="day in report.days.data"
                         :key="day.date"
-                        class="border-b border-[#262d39]/60 last:border-b-0"
-                        :class="{ 'opacity-55': day.generations === 0 }"
+                        class="border-b border-[#2a3444] last:border-b-0"
+                        :class="day.generations === 0 ? 'text-[#97a4ba]' : ''"
                     >
-                        <th scope="row" class="figure px-5 py-3.5 text-left font-normal text-white">
+                        <th scope="row" class="figure px-5 py-2 text-left font-normal text-inherit">
                             {{ day.date }}
                         </th>
-                        <td class="figure px-3 py-3.5 text-right text-[#c3ccd8]">{{ day.generations }}</td>
-                        <td class="figure px-3 py-3.5 text-right text-measured">
+                        <td class="figure px-3 py-2 text-right text-inherit">{{ day.generations }}</td>
+                        <td class="figure px-3 py-2 text-right text-measured">
                             ${{ day.credit_spend.display }}
                         </td>
-                        <td class="figure px-3 py-3.5 text-right text-[#c3ccd8]">
+                        <td class="figure px-3 py-2 text-right text-inherit">
                             ${{ day.provider_cost.display }}
                         </td>
-                        <td class="figure px-3 py-3.5 text-right text-[#c3ccd8]">
+                        <td class="figure px-3 py-2 text-right text-inherit">
                             <template v-if="day.provider_reported_cost">
                                 ${{ day.provider_reported_cost.display }}
                             </template>
                             <span v-else class="text-estimate">unavailable</span>
                         </td>
-                        <td class="figure px-3 py-3.5 text-right">
+                        <td class="figure px-3 py-2 text-right">
                             <span v-if="day.delta" :class="day.reconciled ? 'text-[#c3ccd8]' : 'text-fail'">
                                 ${{ day.delta.display }}
                             </span>
                             <span v-else class="text-[#5e758c]">—</span>
                         </td>
-                        <td class="figure px-5 py-3.5 text-right text-ok">${{ day.profit.display }}</td>
+                        <td class="figure px-5 py-2 text-right text-ok">${{ day.profit.display }}</td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
-        <div class="border-t border-[#262d39]">
+        <div class="border-t border-[#39435a]">
             <Pagination
                 :meta="report.days.meta"
                 page-name="days_page"
@@ -182,38 +182,38 @@ const only = ['report']
         </div>
     </div>
 
-    <h2 class="mt-10 text-[1.9rem] font-bold tracking-tight text-white">By user</h2>
+    <h2 class="mt-7 text-[1.6rem] font-bold tracking-tight text-white">By user</h2>
 
-    <div class="mt-4 overflow-hidden rounded-xl border border-[#262d39] bg-[#0f1621]">
+    <div class="mt-4 overflow-hidden rounded-xl border border-[#3a4457] bg-[#111927]">
         <div v-if="report.users.data.length" class="overflow-x-auto">
             <table class="w-full min-w-[40rem] text-[0.95rem]">
                 <thead>
-                    <tr class="border-b border-[#262d39] text-[#9aa5b4]">
-                        <th scope="col" class="px-5 py-4 text-left font-medium">User</th>
-                        <th scope="col" class="px-3 py-4 text-right font-medium">Images</th>
-                        <th scope="col" class="px-3 py-4 text-right font-medium">Charged</th>
-                        <th scope="col" class="px-3 py-4 text-right font-medium">Our cost</th>
-                        <th scope="col" class="px-5 py-4 text-right font-medium">Profit</th>
+                    <tr class="border-b border-[#39435a] text-[#c7d1e0]">
+                        <th scope="col" class="px-5 py-3 text-left font-medium">User</th>
+                        <th scope="col" class="px-3 py-3 text-right font-medium">Images</th>
+                        <th scope="col" class="px-3 py-3 text-right font-medium">Charged</th>
+                        <th scope="col" class="px-3 py-3 text-right font-medium">Our cost</th>
+                        <th scope="col" class="px-5 py-3 text-right font-medium">Profit</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr
                         v-for="user in report.users.data"
                         :key="user.id"
-                        class="border-b border-[#262d39]/60 last:border-b-0"
+                        class="border-b border-[#2a3444] last:border-b-0"
                     >
-                        <th scope="row" class="px-5 py-3.5 text-left font-normal">
+                        <th scope="row" class="px-5 py-2 text-left font-normal">
                             <span class="font-semibold text-white">{{ user.name }}</span>
                             <span class="ml-2 text-[#9aa5b4]">{{ user.email }}</span>
                         </th>
-                        <td class="figure px-3 py-3.5 text-right text-[#c3ccd8]">{{ user.generations }}</td>
-                        <td class="figure px-3 py-3.5 text-right text-measured">
+                        <td class="figure px-3 py-2 text-right text-inherit">{{ user.generations }}</td>
+                        <td class="figure px-3 py-2 text-right text-measured">
                             ${{ user.credit_spend.display }}
                         </td>
-                        <td class="figure px-3 py-3.5 text-right text-[#c3ccd8]">
+                        <td class="figure px-3 py-2 text-right text-inherit">
                             ${{ user.provider_cost.display }}
                         </td>
-                        <td class="figure px-5 py-3.5 text-right text-ok">${{ user.profit.display }}</td>
+                        <td class="figure px-5 py-2 text-right text-ok">${{ user.profit.display }}</td>
                     </tr>
                 </tbody>
             </table>
