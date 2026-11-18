@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Head } from '@inertiajs/vue3'
+import { computed, onBeforeUnmount, ref } from 'vue'
+import { Head, router } from '@inertiajs/vue3'
 import Dropdown from '@/Components/Dropdown.vue'
 import Download from '@/Components/Icons/Download.vue'
 import Pagination from '@/Components/Pagination.vue'
+import Spinner from '@/Components/Icons/Spinner.vue'
 import TableSkeleton from '@/Components/TableSkeleton.vue'
 import { useSteadyColumns } from '@/Composables/useSteadyColumns'
 import StudioLayout from '@/Layouts/StudioLayout.vue'
@@ -75,7 +76,7 @@ function onUsersLoading(loading: boolean): void {
 }
 
 const daysSkeleton = [
-    { cellClass: 'px-5 py-2', pillClass: 'h-2.5 rounded-full w-[5.5rem]' },
+    { cellClass: 'px-5 py-2', pillClass: 'h-2.5 rounded-full w-[5.6rem]' },
     { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[1.75rem]', align: 'right' as const },
     { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
     { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
@@ -85,27 +86,48 @@ const daysSkeleton = [
 ]
 
 const usersSkeleton = [
-    { cellClass: 'px-5 py-2', pillClass: 'h-2.5 rounded-full w-[14rem]' },
+    { cellClass: 'px-5 py-2', pillClass: 'h-2.5 rounded-full w-[14.45rem]' },
     { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[1.75rem]', align: 'right' as const },
     { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
     { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
     { cellClass: 'px-5 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
 ]
 
-const props = defineProps<{ report: Report }>()
+// The report is a deferred prop, so the page paints before the figures land.
+const props = defineProps<{ report?: Report }>()
 
 const only = ['report']
 
-const exportParams = {
-    start_date: props.report.start_date,
-    end_date: props.report.end_date,
+const loaded = computed(() => props.report !== undefined)
+const failed = ref(false)
+
+const exports = computed(() => {
+    const params = {
+        start_date: props.report?.start_date,
+        end_date: props.report?.end_date,
+    }
+
+    return [
+        { label: 'Billing report (.xlsx)', href: route('admin.report.export.workbook', params) },
+        { label: 'Daily breakdown (.csv)', href: route('admin.report.export.daily', params) },
+        { label: 'By user (.csv)', href: route('admin.report.export.users', params) },
+    ]
+})
+
+const placeholderDays = Array.from({ length: 6 })
+
+function retry(): void {
+    failed.value = false
+    router.reload({ only })
 }
 
-const exports = [
-    { label: 'Billing report (.xlsx)', href: route('admin.report.export.workbook', exportParams) },
-    { label: 'Daily breakdown (.csv)', href: route('admin.report.export.daily', exportParams) },
-    { label: 'By user (.csv)', href: route('admin.report.export.users', exportParams) },
-]
+const stopListening = router.on('finish', (event) => {
+    if (event.detail.visit.only.includes('report')) {
+        failed.value = props.report === undefined
+    }
+})
+
+onBeforeUnmount(() => stopListening())
 </script>
 
 <template>
@@ -117,9 +139,30 @@ const exports = [
             <p class="mt-2 text-[1.05rem] text-[#9aa5b4]">Credit spend and provider cost</p>
         </div>
         <div class="flex items-center gap-5">
-            <p class="figure text-sm text-[#9aa5b4]">{{ report.period_label }}</p>
+            <p v-if="loaded" class="figure text-sm text-[#9aa5b4]">{{ report!.period_label }}</p>
 
-            <Dropdown label="Export" :items="exports" note="Full UTC reporting period">
+            <p v-else-if="failed" class="flex items-center gap-3 text-sm text-fail">
+                Couldn't load the billing report.
+                <button
+                    type="button"
+                    class="rounded-lg border border-fail/60 px-3 py-1.5 text-sm text-fail transition-colors hover:border-fail"
+                    @click="retry"
+                >
+                    Try again
+                </button>
+            </p>
+
+            <p v-else class="flex items-center gap-2.5 text-sm text-[#c7d1e0]" role="status">
+                <Spinner class="size-4 shrink-0 text-[#8a9ffd]" />
+                Loading billing report…
+            </p>
+
+            <Dropdown
+                label="Export"
+                :items="exports"
+                :disabled="! loaded"
+                note="Full UTC reporting period"
+            >
                 <template #icon>
                     <Download class="size-4 shrink-0" />
                 </template>
@@ -130,32 +173,47 @@ const exports = [
     <div class="mt-6 grid gap-5 sm:grid-cols-3">
         <div class="rounded-xl border border-outline bg-surface px-6 py-4">
             <div class="text-[1.05rem] text-[#dbe3ef]">Charged to users</div>
-            <div class="figure mt-1.5 text-[1.9rem] font-semibold text-measured">
-                ${{ report.totals.credit_spend.display }}
+            <div class="figure mt-1.5 flex h-[2.3rem] items-center text-[1.9rem] font-semibold text-measured">
+                <template v-if="loaded">${{ report!.totals.credit_spend.display }}</template>
+                <span v-else class="block h-[1.4rem] w-[11rem] animate-pulse rounded-full bg-[#3f4a5e] motion-reduce:animate-none" />
             </div>
         </div>
         <div class="rounded-xl border border-outline bg-surface px-6 py-4">
             <div class="text-[1.05rem] text-[#dbe3ef]">Paid to Pixelforge</div>
-            <div class="figure mt-1.5 text-[1.9rem] font-semibold text-white">
-                ${{ report.totals.provider_cost.display }}
+            <div class="figure mt-1.5 flex h-[2.3rem] items-center text-[1.9rem] font-semibold text-white">
+                <template v-if="loaded">${{ report!.totals.provider_cost.display }}</template>
+                <span v-else class="block h-[1.4rem] w-[11rem] animate-pulse rounded-full bg-[#3f4a5e] motion-reduce:animate-none" />
             </div>
         </div>
         <div class="rounded-xl border border-outline bg-surface px-6 py-4">
             <div class="text-[1.05rem] text-[#dbe3ef]">Profit</div>
-            <div class="figure mt-1.5 text-[1.9rem] font-semibold text-ok">${{ report.totals.profit.display }}</div>
+            <div class="figure mt-1.5 flex h-[2.3rem] items-center text-[1.9rem] font-semibold text-ok">
+                <template v-if="loaded">${{ report!.totals.profit.display }}</template>
+                <span v-else class="block h-[1.4rem] w-[11rem] animate-pulse rounded-full bg-[#3f4a5e] motion-reduce:animate-none" />
+            </div>
         </div>
     </div>
 
     <div
+        v-if="! loaded"
+        class="mt-5 flex items-center rounded-xl border border-outline bg-surface px-5 py-2 text-[1.05rem]"
+    >
+        <span
+            class="block h-[1.6rem] w-full animate-pulse rounded-full bg-[#3f4a5e] motion-reduce:animate-none"
+        />
+    </div>
+
+    <div
+        v-else
         class="mt-5 flex items-start gap-3 rounded-xl border px-5 py-2 text-[1.05rem]"
         :class="{
-            'border-ok/40 bg-ok/10 text-ok': report.reconciliation.matches === true,
-            'border-fail/40 bg-fail/10 text-fail': report.reconciliation.matches === false,
-            'border-estimate/40 bg-estimate/10 text-estimate': !report.reconciliation.available,
+            'border-ok/40 bg-ok/10 text-ok': report!.reconciliation.matches === true,
+            'border-fail/40 bg-fail/10 text-fail': report!.reconciliation.matches === false,
+            'border-estimate/40 bg-estimate/10 text-estimate': !report!.reconciliation.available,
         }"
     >
         <svg
-            v-if="report.reconciliation.matches === true"
+            v-if="report!.reconciliation.matches === true"
             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 size-5 shrink-0" aria-hidden="true"
         >
@@ -170,15 +228,15 @@ const exports = [
         </svg>
 
         <div>
-            <template v-if="report.reconciliation.matches === true">
+            <template v-if="report!.reconciliation.matches === true">
                 Provider costs match Pixelforge to the nanodollar.
             </template>
-            <template v-else-if="report.reconciliation.matches === false">
+            <template v-else-if="report!.reconciliation.matches === false">
                 Provider costs disagree with Pixelforge. The days that differ are marked below.
             </template>
             <template v-else>
                 Couldn't reach Pixelforge's usage endpoint, so these figures are unverified.
-                <span class="mt-1 block text-sm opacity-80">{{ report.reconciliation.error }}</span>
+                <span class="mt-1 block text-sm opacity-80">{{ report!.reconciliation.error }}</span>
             </template>
         </div>
     </div>
@@ -209,8 +267,8 @@ const exports = [
                     </tr>
                 </thead>
                 <TableSkeleton
-                    v-if="pagingDays"
-                    :rows="report.days.data.length"
+                    v-if="! loaded || pagingDays"
+                    :rows="report?.days.data.length ?? placeholderDays.length"
                     :columns="daysSkeleton"
                     box-class="h-[1.5em]"
                     row-class="border-b border-divider-soft last:border-b-0"
@@ -218,7 +276,7 @@ const exports = [
 
                 <tbody v-else>
                     <tr
-                        v-for="day in report.days.data"
+                        v-for="day in report!.days.data"
                         :key="day.date"
                         class="border-b border-divider-soft last:border-b-0"
                         :class="day.generations === 0 ? 'text-[#97a4ba]' : ''"
@@ -251,9 +309,29 @@ const exports = [
             </table>
         </div>
 
-        <div class="border-t border-outline">
+        <div v-if="! loaded" class="flex flex-wrap items-center justify-between gap-4 border-t border-outline px-5 py-4">
+            <span
+                class="block h-[1.1rem] w-[11rem] animate-pulse rounded-full bg-[#3f4a5e] motion-reduce:animate-none"
+            />
+
+            <div class="flex items-center gap-2" aria-hidden="true">
+                <span class="rounded-lg border border-outline/40 px-3.5 py-2 text-sm text-[#5e758c]">
+                    Previous
+                </span>
+                <span
+                    v-for="slot in 3"
+                    :key="slot"
+                    class="block h-[2.4rem] min-w-[2.5rem] animate-pulse rounded-lg bg-[#3f4a5e] motion-reduce:animate-none"
+                />
+                <span class="rounded-lg border border-outline/40 px-3.5 py-2 text-sm text-[#5e758c]">
+                    Next
+                </span>
+            </div>
+        </div>
+
+        <div v-else class="border-t border-outline">
             <Pagination
-                :meta="report.days.meta"
+                :meta="report!.days.meta"
                 page-name="days_page"
                 :only="only"
                 noun="day"
@@ -266,7 +344,7 @@ const exports = [
     <h2 class="mt-7 text-[1.6rem] font-bold tracking-tight text-white">By user</h2>
 
     <div class="mt-4 overflow-hidden rounded-xl border border-outline bg-surface">
-        <div v-if="report.users.data.length" class="overflow-x-auto">
+        <div v-if="! loaded || report!.users.data.length" class="overflow-x-auto">
             <table
                 ref="usersTable"
                 class="w-full min-w-[40rem] text-[0.95rem]"
@@ -289,8 +367,8 @@ const exports = [
                     </tr>
                 </thead>
                 <TableSkeleton
-                    v-if="pagingUsers"
-                    :rows="report.users.data.length"
+                    v-if="! loaded || pagingUsers"
+                    :rows="report?.users.data.length ?? 3"
                     :columns="usersSkeleton"
                     box-class="h-[1.5em]"
                     row-class="border-b border-divider-soft last:border-b-0"
@@ -298,7 +376,7 @@ const exports = [
 
                 <tbody v-else>
                     <tr
-                        v-for="user in report.users.data"
+                        v-for="user in report!.users.data"
                         :key="user.id"
                         class="border-b border-divider-soft last:border-b-0"
                     >
@@ -323,9 +401,9 @@ const exports = [
             No billed generations in this window.
         </p>
 
-        <div v-if="report.users.meta.last_page > 1" class="border-t border-outline">
+        <div v-if="loaded && report!.users.meta.last_page > 1" class="border-t border-outline">
             <Pagination
-                :meta="report.users.meta"
+                :meta="report!.users.meta"
                 page-name="users_page"
                 :only="only"
                 noun="user"

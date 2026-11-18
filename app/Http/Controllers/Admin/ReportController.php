@@ -28,12 +28,12 @@ class ReportController extends Controller
         );
 
         return Inertia::render('Admin/Report', [
-            'report' => $report->build(
+            'report' => Inertia::defer(fn (): array => $report->build(
                 $period->start,
                 $period->end,
                 (int) ($validated['days_page'] ?? 1),
                 (int) ($validated['users_page'] ?? 1),
-            ),
+            )),
         ]);
     }
 }

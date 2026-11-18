@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Link, usePage } from '@inertiajs/vue3'
+import { computed, onBeforeUnmount, ref } from 'vue'
+import { Link, router, usePage } from '@inertiajs/vue3'
+import Spinner from '@/Components/Icons/Spinner.vue'
 import StarFour from '@/Components/Icons/StarFour.vue'
 import type { SharedPageProps } from '@/types'
 
@@ -13,6 +14,28 @@ const navLinks = [
     { label: 'Generate', route: 'generations.create' },
     { label: 'History', route: 'generations.index' },
 ] as const
+
+const pendingPath = ref<string | null>(null)
+
+const stopStart = router.on('start', (event) => {
+    const target = new URL(event.detail.visit.url, window.location.origin).pathname
+
+    // Paging and polling stay on the page they are already on; only a move to a
+    // different page earns feedback in the nav.
+    pendingPath.value = target === window.location.pathname ? null : target
+})
+
+const stopFinish = router.on('finish', () => (pendingPath.value = null))
+
+function isPending(routeName: string): boolean {
+    return pendingPath.value !== null
+        && new URL(route(routeName), window.location.origin).pathname === pendingPath.value
+}
+
+onBeforeUnmount(() => {
+    stopStart()
+    stopFinish()
+})
 </script>
 
 <template>
@@ -33,7 +56,7 @@ const navLinks = [
                         :key="link.route"
                         :href="route(link.route)"
                         :aria-current="route().current(link.route) ? 'page' : undefined"
-                        class="transition-colors"
+                        class="inline-flex items-center gap-2 transition-colors"
                         :class="
                             route().current(link.route)
                                 ? 'font-medium text-[#8a9ffd]'
@@ -41,13 +64,14 @@ const navLinks = [
                         "
                     >
                         {{ link.label }}
+                        <Spinner v-if="isPending(link.route)" class="size-3.5 shrink-0" />
                     </Link>
 
                     <Link
                         v-if="user?.is_admin"
                         :href="route('admin.report')"
                         :aria-current="route().current('admin.report') ? 'page' : undefined"
-                        class="transition-colors"
+                        class="inline-flex items-center gap-2 transition-colors"
                         :class="
                             route().current('admin.report')
                                 ? 'font-medium text-[#8a9ffd]'
@@ -55,6 +79,7 @@ const navLinks = [
                         "
                     >
                         Billing
+                        <Spinner v-if="isPending('admin.report')" class="size-3.5 shrink-0" />
                     </Link>
                 </nav>
 

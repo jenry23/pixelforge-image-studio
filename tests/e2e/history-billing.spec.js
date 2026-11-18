@@ -202,6 +202,8 @@ test.describe('billing', () => {
     test.beforeEach(async ({ page }) => {
         await signIn(page, 'admin@example.com')
         await page.goto('/admin/report')
+        // The report is a deferred prop, so wait for it to land before asserting.
+        await expect(page.getByRole('button', { name: 'Export' })).toBeEnabled()
     })
 
     test('summarises the period and states the reconciliation', async ({ page }) => {
@@ -307,6 +309,63 @@ test.describe('billing', () => {
 
         // The file describes the period, so the open page cannot change it.
         expect(await download()).toBe(fromPageOne)
+    })
+
+    test('paints the layout with skeletons while the report loads', async ({ page }) => {
+        let hold = true
+        await page.route('**/admin/report**', async (route) => {
+            // Only the deferred request is slowed; the page shell still paints at once.
+            if (hold && route.request().headers()['x-inertia-partial-data']) {
+                await new Promise((r) => setTimeout(r, 2000))
+            }
+            await route.continue()
+        })
+
+        await page.getByRole('link', { name: 'Generate' }).click()
+        await page.waitForURL(/\/generate/)
+        await page.getByRole('link', { name: 'Billing' }).click()
+
+        // The layout is on screen with its own headers and borders, not a blank page.
+        await expect(page.getByRole('heading', { name: 'Billing' })).toBeVisible()
+        await expect(page.getByRole('status')).toHaveText(/Loading billing report…/)
+        await expect(page.getByText('Charged to users')).toBeVisible()
+        await expect(page.locator('thead').first()).toContainText('Pixelforge cost')
+
+        // Nothing is actionable until the figures exist.
+        await expect(page.getByRole('button', { name: 'Export' })).toBeDisabled()
+        await expect(page.locator('nav[aria-label*="pagination"]')).toHaveCount(0)
+        await expect(page.locator('tbody[aria-hidden="true"]')).toHaveCount(2)
+
+        hold = false
+        await expect(page.getByRole('button', { name: 'Export' })).toBeEnabled()
+        await expect(page.locator('tbody[aria-hidden="true"]')).toHaveCount(0)
+        await expect(page.locator('nav[aria-label*="days pagination"] p')).toContainText(
+            /Showing 1–\d+ of \d+ days/,
+        )
+    })
+
+    test('offers a retry when the report fails to load', async ({ page }) => {
+        let fail = true
+        await page.route('**/admin/report**', async (route) => {
+            if (fail && route.request().headers()['x-inertia-partial-data']) {
+                await route.abort('failed')
+            } else {
+                await route.continue()
+            }
+        })
+
+        await page.getByRole('link', { name: 'Generate' }).click()
+        await page.waitForURL(/\/generate/)
+        await page.getByRole('link', { name: 'Billing' }).click()
+
+        await expect(page.getByText("Couldn't load the billing report.")).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Export' })).toBeDisabled()
+
+        fail = false
+        await page.getByRole('button', { name: 'Try again' }).click()
+
+        await expect(page.getByRole('button', { name: 'Export' })).toBeEnabled()
+        await expect(page.locator('tbody[aria-hidden="true"]')).toHaveCount(0)
     })
 
     test('keeps the UTC window across pages', async ({ page }) => {
