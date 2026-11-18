@@ -38,6 +38,13 @@ return [
 
         'submit_max_attempts' => (int) env('PIXELFORGE_SUBMIT_MAX_ATTEMPTS', 6),
 
+        // How long one worker may hold a submit attempt. Must exceed the queue
+        // worker's --timeout, or a job killed by that timeout leaves a claim
+        // that blocks its own retries until the lease expires.
+        'submit_lease_seconds' => (int) env('PIXELFORGE_SUBMIT_LEASE_SECONDS', 120),
+
+        'claim_wait_seconds' => (int) env('PIXELFORGE_CLAIM_WAIT', 5),
+
         'resolve_unknown_for_minutes' => (int) env('PIXELFORGE_RESOLVE_UNKNOWN_MINUTES', 60),
 
         'webhook_tolerance_seconds' => (int) env('PIXELFORGE_WEBHOOK_TOLERANCE', 300),

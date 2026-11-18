@@ -53,7 +53,8 @@ Optional tuning (sensible defaults are built in):
 ```dotenv
 PIXELFORGE_MAX_IN_FLIGHT=3              # provider cap on queued+processing
 PIXELFORGE_SUBMIT_MAX_ATTEMPTS=6        # provider attempts before parking as `unknown`
-PIXELFORGE_RESOLVE_UNKNOWN_MINUTES=60   # how long to keep resolving an unknown outcome
+PIXELFORGE_SUBMIT_LEASE_SECONDS=120     # must exceed the worker --timeout; see below
+PIXELFORGE_RESOLVE_UNKNOWN_MINUTES=60   # how long to keep replaying an unknown outcome
 PIXELFORGE_WEBHOOK_TOLERANCE=300        # reject signatures older than this
 PIXELFORGE_RECONCILE_AFTER=45           # poll a generation gone quiet this long
 PIXELFORGE_SIGNUP_CREDIT_USD=5.00       # welcome credit for new accounts
@@ -83,6 +84,15 @@ Add two processes beyond the web one:
 `--tries=1` is deliberate: the jobs manage their own retry budget and persist it
 on the generation row, so letting the queue retry them as well would double-count
 attempts.
+
+**Keep `PIXELFORGE_SUBMIT_LEASE_SECONDS` above the worker's `--timeout`.** A
+submit attempt is claimed for the length of the lease and released on a clean
+exit. A worker killed by the queue timeout cannot release it, which is precisely
+how the next attempt learns the outcome is unknown. If the lease were shorter
+than the timeout, a *still-running* job would look crashed and a second worker
+could submit alongside it. At the defaults (60s timeout, 120s lease) there is 2x
+headroom. Recovery takes up to one lease, so do not set it far higher than
+needed.
 
 ### Anywhere else (systemd, supervisor, containers)
 
@@ -118,7 +128,10 @@ curl -sS https://your-domain/up
 php artisan pixelforge:verify-ledger    # must exit 0
 
 # 4. Open /admin/report as an admin. The banner must read
-#    "Our provider costs match Pixelforge's own record exactly".
+#    "Provider costs match Pixelforge to the nanodollar."
+
+# 5. Nothing should be waiting on a person yet
+php artisan pixelforge:resolve-generation   # expect "Nothing is awaiting review." 
 ```
 
 If the banner instead says the usage endpoint could not be reached, the report is
@@ -129,9 +142,17 @@ presented as confirmed when nothing confirmed them.
 
 - **`pixelforge:verify-ledger`** exits non-zero on any discrepancy. Worth
   alerting on; it runs daily at 03:00 by default.
+- **Generations parked as `unresolved` need a person.** When replays cannot
+  confirm an outcome, the generation stops retrying and holds the user's credit
+  rather than guessing. Nothing clears these automatically, by design. Put
+  `php artisan pixelforge:resolve-generation` (no arguments lists them) in the
+  on-call routine, and alert on the log line `Stopped replaying an unknown
+  generation automatically`, which is written at `error` level with the user id
+  and the amount held. The full procedure, including the evidence required
+  before releasing a hold, is in [docs/ENGINEERING.md](docs/ENGINEERING.md).
 - **A persistent delta in the billing report** means provider cost we have not
   recorded. The usual cause is a generation created outside the app on the same
-  key (a manual `curl`, say), or one abandoned as `unknown`. Both are logged.
+  key (a manual `curl`, say), or one still sitting `unresolved`. Both are logged.
 - **Images expire 24 hours** after completion. The app stores the URL and its
   expiry and shows an expired state; it does not re-fetch, since a fresh URL
   expires at the same moment.
