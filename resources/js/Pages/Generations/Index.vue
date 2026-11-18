@@ -80,7 +80,7 @@ function buyCredits(amount: string): void {
                 v-for="pack in props.creditPacks"
                 :key="pack"
                 type="button"
-                class="figure rounded-lg border border-[#262d39] bg-[#101723] px-3.5 py-2 text-sm text-white transition-colors hover:border-[#8a9ffd]/60"
+                class="figure rounded-lg border border-outline bg-[#101723] px-3.5 py-2 text-sm text-white transition-colors hover:border-[#8a9ffd]/60"
                 @click="buyCredits(pack)"
             >
                 ${{ pack }}
@@ -100,7 +100,7 @@ function buyCredits(amount: string): void {
         <div v-if="rows.length" class="overflow-x-auto">
             <table class="w-full min-w-[56rem] text-sm">
                 <thead>
-                    <tr class="border-b border-divider text-[#c7d1e0]">
+                    <tr class="border-b border-outline text-white">
                         <th scope="col" class="px-5 py-3.5 text-left font-medium">Image</th>
                         <th scope="col" class="px-3 py-3.5 text-left font-medium">Prompt</th>
                         <th scope="col" class="px-3 py-3.5 text-left font-medium">Status</th>
@@ -206,7 +206,7 @@ function buyCredits(amount: string): void {
             </p>
         </div>
 
-        <div v-if="rows.length" class="border-t border-divider">
+        <div v-if="rows.length" class="border-t border-outline">
             <Pagination
                 :meta="props.generations.meta"
                 page-name="page"

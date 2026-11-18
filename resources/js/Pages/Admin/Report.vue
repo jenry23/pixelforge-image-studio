@@ -126,7 +126,7 @@ const only = ['report']
         <div class="overflow-x-auto">
             <table class="w-full min-w-[52rem] text-[0.95rem]">
                 <thead>
-                    <tr class="border-b border-divider text-[#c7d1e0]">
+                    <tr class="border-b border-outline text-white">
                         <th scope="col" class="px-5 py-3 text-left font-medium">UTC day</th>
                         <th scope="col" class="px-3 py-3 text-right font-medium">Images</th>
                         <th scope="col" class="px-3 py-3 text-right font-medium">Charged</th>
@@ -171,7 +171,7 @@ const only = ['report']
             </table>
         </div>
 
-        <div class="border-t border-divider">
+        <div class="border-t border-outline">
             <Pagination
                 :meta="report.days.meta"
                 page-name="days_page"
@@ -188,7 +188,7 @@ const only = ['report']
         <div v-if="report.users.data.length" class="overflow-x-auto">
             <table class="w-full min-w-[40rem] text-[0.95rem]">
                 <thead>
-                    <tr class="border-b border-divider text-[#c7d1e0]">
+                    <tr class="border-b border-outline text-white">
                         <th scope="col" class="px-5 py-3 text-left font-medium">User</th>
                         <th scope="col" class="px-3 py-3 text-right font-medium">Images</th>
                         <th scope="col" class="px-3 py-3 text-right font-medium">Charged</th>
@@ -223,7 +223,7 @@ const only = ['report']
             No billed generations in this window.
         </p>
 
-        <div v-if="report.users.meta.last_page > 1" class="border-t border-[#262d39]">
+        <div v-if="report.users.meta.last_page > 1" class="border-t border-outline">
             <Pagination
                 :meta="report.users.meta"
                 page-name="users_page"
