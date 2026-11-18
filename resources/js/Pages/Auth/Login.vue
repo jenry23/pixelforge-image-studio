@@ -37,9 +37,9 @@ const submit = () => {
 <template>
     <Head title="Sign in" />
 
-    <div class="min-h-screen bg-[#0e1522] lg:grid lg:grid-cols-[48fr_52fr]">
+    <div class="min-h-screen bg-[#0e1522] lg:grid lg:h-screen lg:min-h-0 lg:grid-cols-[48fr_52fr] lg:overflow-hidden">
         <!-- Form side -->
-        <div class="relative flex min-h-screen items-center justify-center px-6 py-20 sm:px-10 sm:py-28 lg:pl-[3.25rem]">
+        <div class="relative flex min-h-screen justify-center px-6 py-16 sm:px-10 sm:py-20 [@media(max-height:800px)]:py-10 lg:h-screen lg:min-h-0 lg:overflow-y-auto lg:pl-[3.25rem]">
             <Link
                 href="/"
                 class="absolute left-6 top-8 inline-flex items-center gap-2.5 rounded text-[1.35rem] font-semibold tracking-tight text-white sm:left-10 lg:left-[3.2rem] lg:top-[2.4rem]"
@@ -48,11 +48,11 @@ const submit = () => {
                 Image Studio
             </Link>
 
-            <div class="w-full max-w-[30.9rem]">
-                    <h1 class="text-[2.1rem] font-bold leading-[1.12] tracking-tight text-white sm:text-[2.8rem]">
+            <div class="m-auto w-full max-w-[30.9rem]">
+                    <h1 class="text-[2.1rem] font-bold leading-[1.12] tracking-tight text-white sm:text-[2.8rem] [@media(max-height:800px)]:sm:text-[2.1rem]">
                         Sign in to Image Studio
                     </h1>
-                    <p class="mt-[0.9rem] text-[1.1rem] leading-relaxed text-[#9aa5b4] sm:text-[1.28rem]">
+                    <p class="mt-[0.9rem] text-[1.1rem] leading-relaxed text-[#9aa5b4] sm:text-[1.28rem] [@media(max-height:800px)]:mt-[0.5rem] [@media(max-height:800px)]:sm:text-[1.1rem]">
                         Generate images and track what each one costs.
                     </p>
 
@@ -63,7 +63,7 @@ const submit = () => {
                         {{ status }}
                     </div>
 
-                    <form class="mt-[2.1rem]" @submit.prevent="submit">
+                    <form class="mt-[2.1rem] [@media(max-height:800px)]:mt-[1.25rem]" @submit.prevent="submit">
                         <div>
                             <label for="email" class="block text-[1.05rem] font-semibold leading-none text-white sm:text-[1.25rem]">
                                 Email
@@ -76,16 +76,16 @@ const submit = () => {
                                 autofocus
                                 autocomplete="username"
                                 placeholder="you@example.com"
-                                class="mt-[0.7rem] block h-[3.4rem] w-full sm:h-[3.75rem] rounded-xl border border-[#2b3443] bg-[#101723] px-4 text-[1.0625rem] text-white placeholder:text-[#7c8696] sm:text-[1.2rem] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd]"
+                                class="mt-[0.7rem] [@media(max-height:800px)]:mt-[0.45rem] block h-[3.4rem] w-full sm:h-[3.75rem] [@media(max-height:800px)]:sm:h-[3.1rem] rounded-xl border border-[#2b3443] bg-[#101723] px-4 text-[1.0625rem] text-white placeholder:text-[#7c8696] sm:text-[1.2rem] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd]"
                             />
                             <InputError class="mt-2" :message="form.errors.email" />
                         </div>
 
-                        <div class="mt-[1.55rem]">
+                        <div class="mt-[1.55rem] [@media(max-height:800px)]:mt-[1rem]">
                             <label for="password" class="block text-[1.05rem] font-semibold leading-none text-white sm:text-[1.25rem]">
                                 Password
                             </label>
-                            <div class="relative mt-[0.7rem]">
+                            <div class="relative mt-[0.7rem] [@media(max-height:800px)]:mt-[0.45rem]">
                                 <input
                                     id="password"
                                     v-model="form.password"
@@ -93,7 +93,7 @@ const submit = () => {
                                     required
                                     autocomplete="current-password"
                                     placeholder="Enter your password"
-                                    class="block h-[3.4rem] w-full rounded-xl border border-[#2b3443] bg-[#101723] pl-4 pr-14 sm:h-[3.75rem] text-[1.0625rem] text-white placeholder:text-[#7c8696] sm:text-[1.2rem] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd]"
+                                    class="block h-[3.4rem] w-full rounded-xl border border-[#2b3443] bg-[#101723] pl-4 pr-14 sm:h-[3.75rem] [@media(max-height:800px)]:sm:h-[3.1rem] text-[1.0625rem] text-white placeholder:text-[#7c8696] sm:text-[1.2rem] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd]"
                                 />
                                 <button
                                     type="button"
@@ -108,7 +108,7 @@ const submit = () => {
                             <InputError class="mt-2" :message="form.errors.password" />
                         </div>
 
-                        <div class="mt-[1.8rem] flex flex-wrap items-center justify-between gap-3">
+                        <div class="mt-[1.8rem] [@media(max-height:800px)]:mt-[1.1rem] flex flex-wrap items-center justify-between gap-3">
                             <label class="flex cursor-pointer items-center gap-3 text-[1rem] text-white sm:text-[1.1rem]">
                                 <input
                                     v-model="form.remember"
@@ -131,12 +131,12 @@ const submit = () => {
                         <button
                             type="submit"
                             :disabled="form.processing"
-                            class="mt-[2.4rem] h-[3.5rem] w-full sm:h-[3.875rem] rounded-xl bg-[#8a9ffd] text-[1.05rem] font-bold sm:text-[1.15rem] text-[#0b1020] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8a9ffd] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e1522] disabled:opacity-50"
+                            class="mt-[2.4rem] [@media(max-height:800px)]:mt-[1.4rem] h-[3.5rem] w-full sm:h-[3.875rem] [@media(max-height:800px)]:sm:h-[3.2rem] rounded-xl bg-[#8a9ffd] text-[1.05rem] font-bold sm:text-[1.15rem] text-[#0b1020] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8a9ffd] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e1522] disabled:opacity-50"
                         >
                             {{ form.processing ? 'Signing in…' : 'Sign in' }}
                         </button>
 
-                        <p class="mt-[1.75rem] text-center text-[1.05rem] text-white sm:text-[1.175rem]">
+                        <p class="mt-[1.75rem] [@media(max-height:800px)]:mt-[1.1rem] text-center text-[1.05rem] text-white sm:text-[1.175rem]">
                             New to Image Studio?
                             <Link
                                 :href="route('register')"
@@ -150,7 +150,7 @@ const submit = () => {
         </div>
 
         <!-- Artwork side. Desktop only: see useMediaQuery above. -->
-        <div v-if="showArtwork" class="hidden py-[1.3rem] pr-[1.3rem] lg:block">
+        <div v-if="showArtwork" class="hidden py-[1.3rem] pr-[1.3rem] lg:block lg:h-screen">
             <figure class="relative h-full overflow-hidden rounded-2xl">
                 <img
                     src="/images/login-hero.webp"
