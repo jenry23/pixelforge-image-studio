@@ -73,7 +73,6 @@ const submit = () => {
                                 v-model="form.email"
                                 type="email"
                                 required
-                                autofocus
                                 autocomplete="username"
                                 placeholder="you@example.com"
                                 class="mt-[0.7rem] [@media(max-height:800px)]:mt-[0.45rem] block h-[3.4rem] w-full sm:h-[3.75rem] [@media(max-height:800px)]:sm:h-[3.1rem] rounded-xl border border-[#262d39] bg-[#101723] px-4 text-[1.0625rem] text-white placeholder:text-[#a5acb7] sm:text-[1.2rem] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd]"
@@ -150,8 +149,17 @@ const submit = () => {
         </div>
 
         <!-- Artwork side. Desktop only: see useMediaQuery above. -->
-        <div v-if="showArtwork" class="hidden py-[1.3rem] pr-[1.3rem] lg:block lg:h-screen">
-            <figure class="relative h-full overflow-hidden rounded-2xl">
+        <!--
+            The panel keeps the artwork's own 803:950 proportions rather than
+            stretching to fill the column. Filling it meant that on any window
+            that is not the design's exact shape, `cover` cropped the image
+            vertically -- 27% of it on a wide, short window -- so the
+            composition was never the one in the design. Holding the ratio
+            shows the whole picture at every window shape, and at the design's
+            proportions it still fills the column exactly.
+        -->
+        <div v-if="showArtwork" class="hidden justify-end py-[1.3rem] pr-[1.3rem] lg:flex lg:h-screen">
+            <figure class="relative h-full w-auto max-w-full shrink-0 overflow-hidden rounded-2xl [aspect-ratio:803/950]">
                 <img
                     src="/images/login-hero.webp"
                     alt=""
