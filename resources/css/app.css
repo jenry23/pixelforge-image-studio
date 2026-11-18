@@ -1,0 +1,103 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+
+@source '../../resources/views/**/*.blade.php';
+@source '../../resources/js/**/*.vue';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+/*
+ * This app meters money. Its whole job is to show what something will cost
+ * while that cost is still uncertain, then show exactly what it did cost.
+ *
+ * So colour carries meaning rather than decoration:
+ *   --estimate (amber)  a figure we do not know yet
+ *   --measured (cyan)   a figure the provider has settled, exact to 9dp
+ *   --muted             not applicable
+ *
+ * Nothing else in the interface is allowed to use those two hues, so an amber
+ * number always means "still an estimate" wherever it appears.
+ */
+@theme {
+    --color-ink: #0e1721;
+    --color-panel: #16222f;
+    --color-panel-raised: #1d2c3c;
+    --color-line: #24374a;
+    --color-line-bright: #35506b;
+
+    --color-body: #e6edf3;
+    --color-muted: #8ca3b8;
+    --color-dim: #5e758c;
+
+    --color-measured: #4cc9e0;
+    --color-measured-deep: #1d5d6b;
+    --color-estimate: #e8a33d;
+    --color-estimate-deep: #6b4a16;
+    --color-fail: #e5736a;
+    --color-ok: #5fd39a;
+
+    --font-sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    /* Figures only. Digit alignment is functional here: the reconciliation
+       table compares 0.011707500 against 0.011707501 column by column. */
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+}
+
+@layer base {
+    html {
+        color-scheme: dark;
+    }
+
+    body {
+        background-color: var(--color-ink);
+        color: var(--color-body);
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* Keyboard focus must stay obvious against a dark ground. */
+    :focus-visible {
+        outline: 2px solid var(--color-measured);
+        outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}
+
+@layer components {
+    /* A money figure. Tabular so columns of digits line up and can be compared
+       at a glance, which is the entire point of the reconciliation view. */
+    .figure {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+        font-feature-settings: 'zero' 1;
+        letter-spacing: -0.01em;
+    }
+
+    .panel {
+        background-color: var(--color-panel);
+        border: 1px solid var(--color-line);
+    }
+
+    .field {
+        background-color: var(--color-ink);
+        border: 1px solid var(--color-line);
+        color: var(--color-body);
+        border-radius: 0.375rem;
+    }
+
+    .field::placeholder {
+        color: var(--color-dim);
+    }
+
+    .field:focus {
+        border-color: var(--color-line-bright);
+        box-shadow: none;
+        outline: 2px solid var(--color-measured);
+        outline-offset: -1px;
+    }
+}
