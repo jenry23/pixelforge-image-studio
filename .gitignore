@@ -28,9 +28,3 @@ Thumbs.db
 /test-results
 /playwright-report
 /blob-report
-.claude/
-.codex/
-CLAUDE.md
-AGENTS.md
-GEMINI.md
-.mcp.json
