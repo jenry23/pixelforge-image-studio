@@ -1,64 +1,70 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
+import StarFour from '@/Components/Icons/StarFour.vue'
+import type { SharedPageProps } from '@/types'
 
-/**
- * The app shell: a narrow top bar and nothing else.
- *
- * There are only three places to go, so a sidebar would be chrome for its own
- * sake. Flash messages appear inline here rather than as floating toasts,
- * because a confirmation about money should stay on screen until the page
- * changes.
- */
-const page = usePage()
+const page = usePage<SharedPageProps>()
 
 const user = computed(() => page.props.auth.user)
-const flash = computed(() => page.props.flash ?? {})
+const flash = computed(() => page.props.flash ?? { success: null, error: null })
+
+const navLinks = [
+    { label: 'Generate', route: 'generations.create' },
+    { label: 'History', route: 'generations.index' },
+] as const
 </script>
 
 <template>
-    <div class="min-h-screen">
-        <header class="border-b border-line bg-panel/60">
-            <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
+    <div class="min-h-screen bg-[#0e1522]">
+        <header class="border-b border-[#1d2635]">
+            <div class="mx-auto flex max-w-[82rem] flex-wrap items-center gap-x-8 gap-y-3 px-5 py-4 sm:px-8">
                 <Link
                     :href="route('generations.create')"
-                    class="text-sm font-semibold tracking-tight text-body"
+                    class="inline-flex items-center gap-2.5 text-[1.15rem] font-semibold tracking-tight text-white"
                 >
-                    Image studio
+                    <StarFour class="size-5 shrink-0" />
+                    Image Studio
                 </Link>
 
-                <nav class="flex items-center gap-4 text-sm">
+                <nav class="flex items-center gap-6 text-[1rem]">
                     <Link
-                        :href="route('generations.create')"
+                        v-for="link in navLinks"
+                        :key="link.route"
+                        :href="route(link.route)"
+                        :aria-current="route().current(link.route) ? 'page' : undefined"
                         class="transition-colors"
-                        :class="route().current('generations.create') ? 'text-measured' : 'text-muted hover:text-body'"
+                        :class="
+                            route().current(link.route)
+                                ? 'font-medium text-[#8a9ffd]'
+                                : 'text-[#c3ccd8] hover:text-white'
+                        "
                     >
-                        Generate
+                        {{ link.label }}
                     </Link>
-                    <Link
-                        :href="route('generations.index')"
-                        class="transition-colors"
-                        :class="route().current('generations.index') ? 'text-measured' : 'text-muted hover:text-body'"
-                    >
-                        History
-                    </Link>
+
                     <Link
                         v-if="user?.is_admin"
                         :href="route('admin.report')"
+                        :aria-current="route().current('admin.report') ? 'page' : undefined"
                         class="transition-colors"
-                        :class="route().current('admin.report') ? 'text-measured' : 'text-muted hover:text-body'"
+                        :class="
+                            route().current('admin.report')
+                                ? 'font-medium text-[#8a9ffd]'
+                                : 'text-[#c3ccd8] hover:text-white'
+                        "
                     >
                         Billing
                     </Link>
                 </nav>
 
-                <div class="ml-auto flex items-center gap-4 text-sm">
-                    <span class="text-dim">{{ user?.email }}</span>
+                <div class="ml-auto flex items-center gap-5 text-[0.95rem]">
+                    <span class="text-[#9aa5b4]">{{ user?.email }}</span>
                     <Link
                         :href="route('logout')"
                         method="post"
                         as="button"
-                        class="text-muted transition-colors hover:text-body"
+                        class="text-white transition-colors hover:text-[#8a9ffd]"
                     >
                         Sign out
                     </Link>
@@ -67,12 +73,12 @@ const flash = computed(() => page.props.flash ?? {})
         </header>
 
         <div v-if="flash.success" class="border-b border-ok/30 bg-ok/10">
-            <p class="mx-auto max-w-6xl px-4 py-2 text-sm text-ok sm:px-6">
+            <p class="mx-auto max-w-[82rem] px-5 py-2.5 text-sm text-ok sm:px-8">
                 {{ flash.success }}
             </p>
         </div>
 
-        <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <main class="mx-auto max-w-[82rem] px-5 py-9 sm:px-8">
             <slot />
         </main>
     </div>
