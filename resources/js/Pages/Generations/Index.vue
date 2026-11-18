@@ -59,7 +59,7 @@ function buyCredits(amount: string): void {
 <template>
     <Head title="History" />
 
-    <div class="flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
+    <div class="flex flex-wrap items-end justify-between gap-x-10 gap-y-4">
         <div>
             <h1 class="text-[2.2rem] font-bold tracking-tight text-white sm:text-[2.6rem]">
                 Generation history
@@ -68,7 +68,7 @@ function buyCredits(amount: string): void {
                 Your past image generations, costs, and status.
             </p>
 
-            <div class="mt-6">
+            <div class="mt-3">
                 <div class="text-sm text-[#9aa5b4]">Available to spend</div>
                 <div class="figure text-[1.75rem] text-measured">${{ props.balance.available }}</div>
             </div>
@@ -88,7 +88,7 @@ function buyCredits(amount: string): void {
         </div>
     </div>
 
-    <div class="mt-7 flex items-center justify-end">
+    <div class="sr-only">
         <span v-if="polling" class="flex items-center gap-1.5 text-xs text-measured">
             <span class="size-1.5 animate-pulse rounded-full bg-current" aria-hidden="true" />
             Watching for updates
@@ -96,31 +96,31 @@ function buyCredits(amount: string): void {
         <span v-else-if="rows.length" class="text-xs text-[#5e758c]">Up to date</span>
     </div>
 
-    <div class="mt-3 overflow-hidden rounded-2xl border border-[#262d39] bg-[#0f1621]">
+    <div class="mt-4 overflow-hidden rounded-2xl border border-outline bg-surface">
         <div v-if="rows.length" class="overflow-x-auto">
             <table class="w-full min-w-[56rem] text-sm">
                 <thead>
-                    <tr class="border-b border-[#262d39] text-[#9aa5b4]">
-                        <th scope="col" class="px-5 py-4 text-left font-medium">Image</th>
-                        <th scope="col" class="px-3 py-4 text-left font-medium">Prompt</th>
-                        <th scope="col" class="px-3 py-4 text-left font-medium">Status</th>
-                        <th scope="col" class="px-3 py-4 text-left font-medium">Dimensions</th>
-                        <th scope="col" class="px-3 py-4 text-left font-medium">Quality</th>
-                        <th scope="col" class="px-3 py-4 text-right font-medium">Tokens</th>
-                        <th scope="col" class="px-5 py-4 text-right font-medium">Charged</th>
+                    <tr class="border-b border-divider text-[#c7d1e0]">
+                        <th scope="col" class="px-5 py-3.5 text-left font-medium">Image</th>
+                        <th scope="col" class="px-3 py-3.5 text-left font-medium">Prompt</th>
+                        <th scope="col" class="px-3 py-3.5 text-left font-medium">Status</th>
+                        <th scope="col" class="px-3 py-3.5 text-left font-medium">Dimensions</th>
+                        <th scope="col" class="px-3 py-3.5 text-left font-medium">Quality</th>
+                        <th scope="col" class="px-3 py-3.5 text-right font-medium">Tokens</th>
+                        <th scope="col" class="px-5 py-3.5 text-right font-medium">Charged</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr
                         v-for="generation in rows"
                         :key="generation.id"
-                        class="border-b border-[#262d39]/70 last:border-b-0"
+                        class="border-b border-divider-soft last:border-b-0"
                     >
-                        <td class="px-5 py-4 align-top">
+                        <td class="px-5 py-2 align-middle">
                             <button
                                 v-if="hasImage(generation)"
                                 type="button"
-                                class="block size-[4.5rem] overflow-hidden rounded-lg border border-[#2b3647] transition-colors hover:border-[#8a9ffd] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8a9ffd]"
+                                class="block size-[7.2rem] overflow-hidden rounded-xl border border-outline transition-colors hover:border-[#8a9ffd] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8a9ffd]"
                                 :aria-label="`View details for: ${generation.prompt}`"
                                 @click="open(generation, $event)"
                             >
@@ -134,34 +134,34 @@ function buyCredits(amount: string): void {
 
                             <div
                                 v-else
-                                class="flex size-[4.5rem] items-center justify-center rounded-lg border border-[#2b3647] bg-[#0b111b] px-1 text-center text-[0.7rem] leading-tight text-[#5e758c]"
+                                class="flex size-[7.2rem] items-center justify-center rounded-xl border border-outline bg-[#0b111b] px-2 text-center text-[0.85rem] leading-tight text-[#8e9bb0]"
                             >
                                 {{ placeholderLabel(generation) }}
                             </div>
                         </td>
 
-                        <td class="max-w-[22rem] px-3 py-4 align-top">
+                        <td class="max-w-[26rem] px-3 py-2 align-middle">
                             <p class="leading-relaxed text-white">{{ generation.prompt }}</p>
                             <p v-if="generation.error_message" class="mt-1.5 leading-relaxed text-fail">
                                 {{ generation.error_message }}
                             </p>
                         </td>
 
-                        <td class="px-3 py-4 align-top">
+                        <td class="px-3 py-2 align-middle">
                             <StatusPill :status="generation.status" :label="generation.status_label" />
                         </td>
 
-                        <td class="figure px-3 py-4 align-top text-[#c3ccd8]">
+                        <td class="figure px-3 py-2 align-middle text-[#c3ccd8]">
                             {{ generation.dimensions }}
                         </td>
 
-                        <td class="px-3 py-4 align-top text-[#c3ccd8]">{{ generation.quality }}</td>
+                        <td class="px-3 py-2 align-middle text-[#c3ccd8]">{{ generation.quality }}</td>
 
-                        <td class="figure px-3 py-4 text-right align-top text-[#c3ccd8]">
+                        <td class="figure px-3 py-2 text-right align-middle text-[#c3ccd8]">
                             {{ generation.total_tokens ? generation.total_tokens.toLocaleString() : '—' }}
                         </td>
 
-                        <td class="px-5 py-4 text-right align-top">
+                        <td class="px-5 py-2 text-right align-middle">
                             <template v-if="generation.actual_charge && generation.actual_charge.nanodollars > 0">
                                 <div class="text-xs text-[#9aa5b4]">Charged</div>
                                 <div class="figure text-[1.35rem] text-measured">
@@ -206,7 +206,7 @@ function buyCredits(amount: string): void {
             </p>
         </div>
 
-        <div v-if="rows.length" class="border-t border-[#262d39]">
+        <div v-if="rows.length" class="border-t border-divider">
             <Pagination
                 :meta="props.generations.meta"
                 page-name="page"

@@ -75,7 +75,7 @@ function currentQuery(): Record<string, string> {
             <button
                 type="button"
                 :disabled="current === 1"
-                class="rounded-lg border border-[#3a4457] px-3.5 py-2 text-sm text-white transition-colors hover:border-[#8a9ffd]/60 disabled:cursor-not-allowed disabled:text-[#5e758c] disabled:hover:border-[#3a4457]"
+                class="rounded-lg border border-outline px-3.5 py-2 text-sm text-white transition-colors hover:border-[#8a9ffd]/60 disabled:cursor-not-allowed disabled:text-[#5e758c] disabled:hover:border-outline"
                 @click="go(current - 1)"
             >
                 Previous
@@ -90,7 +90,7 @@ function currentQuery(): Record<string, string> {
                 :class="
                     page === current
                         ? 'border-[#8a9ffd] bg-[#8a9ffd] font-semibold text-[#0b1020]'
-                        : 'border-[#3a4457] text-white hover:border-[#8a9ffd]/60'
+                        : 'border-outline text-white hover:border-[#8a9ffd]'
                 "
                 @click="go(page)"
             >
@@ -100,7 +100,7 @@ function currentQuery(): Record<string, string> {
             <button
                 type="button"
                 :disabled="current === last"
-                class="rounded-lg border border-[#3a4457] px-3.5 py-2 text-sm text-white transition-colors hover:border-[#8a9ffd]/60 disabled:cursor-not-allowed disabled:text-[#5e758c] disabled:hover:border-[#3a4457]"
+                class="rounded-lg border border-outline px-3.5 py-2 text-sm text-white transition-colors hover:border-[#8a9ffd]/60 disabled:cursor-not-allowed disabled:text-[#5e758c] disabled:hover:border-outline"
                 @click="go(current + 1)"
             >
                 Next

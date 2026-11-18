@@ -67,19 +67,19 @@ const only = ['report']
     </div>
 
     <div class="mt-6 grid gap-5 sm:grid-cols-3">
-        <div class="rounded-xl border border-[#3a4457] bg-[#111927] px-6 py-4">
+        <div class="rounded-xl border border-outline bg-surface px-6 py-4">
             <div class="text-[1.05rem] text-[#dbe3ef]">Charged to users</div>
             <div class="figure mt-1.5 text-[1.9rem] font-semibold text-measured">
                 ${{ report.totals.credit_spend.display }}
             </div>
         </div>
-        <div class="rounded-xl border border-[#3a4457] bg-[#111927] px-6 py-4">
+        <div class="rounded-xl border border-outline bg-surface px-6 py-4">
             <div class="text-[1.05rem] text-[#dbe3ef]">Paid to Pixelforge</div>
             <div class="figure mt-1.5 text-[1.9rem] font-semibold text-white">
                 ${{ report.totals.provider_cost.display }}
             </div>
         </div>
-        <div class="rounded-xl border border-[#3a4457] bg-[#111927] px-6 py-4">
+        <div class="rounded-xl border border-outline bg-surface px-6 py-4">
             <div class="text-[1.05rem] text-[#dbe3ef]">Profit</div>
             <div class="figure mt-1.5 text-[1.9rem] font-semibold text-ok">${{ report.totals.profit.display }}</div>
         </div>
@@ -122,11 +122,11 @@ const only = ['report']
         </div>
     </div>
 
-    <div class="mt-4 overflow-hidden rounded-xl border border-[#3a4457] bg-[#111927]">
+    <div class="mt-4 overflow-hidden rounded-xl border border-outline bg-surface">
         <div class="overflow-x-auto">
             <table class="w-full min-w-[52rem] text-[0.95rem]">
                 <thead>
-                    <tr class="border-b border-[#39435a] text-[#c7d1e0]">
+                    <tr class="border-b border-divider text-[#c7d1e0]">
                         <th scope="col" class="px-5 py-3 text-left font-medium">UTC day</th>
                         <th scope="col" class="px-3 py-3 text-right font-medium">Images</th>
                         <th scope="col" class="px-3 py-3 text-right font-medium">Charged</th>
@@ -140,7 +140,7 @@ const only = ['report']
                     <tr
                         v-for="day in report.days.data"
                         :key="day.date"
-                        class="border-b border-[#2a3444] last:border-b-0"
+                        class="border-b border-divider-soft last:border-b-0"
                         :class="day.generations === 0 ? 'text-[#97a4ba]' : ''"
                     >
                         <th scope="row" class="figure px-5 py-2 text-left font-normal text-inherit">
@@ -171,7 +171,7 @@ const only = ['report']
             </table>
         </div>
 
-        <div class="border-t border-[#39435a]">
+        <div class="border-t border-divider">
             <Pagination
                 :meta="report.days.meta"
                 page-name="days_page"
@@ -184,11 +184,11 @@ const only = ['report']
 
     <h2 class="mt-7 text-[1.6rem] font-bold tracking-tight text-white">By user</h2>
 
-    <div class="mt-4 overflow-hidden rounded-xl border border-[#3a4457] bg-[#111927]">
+    <div class="mt-4 overflow-hidden rounded-xl border border-outline bg-surface">
         <div v-if="report.users.data.length" class="overflow-x-auto">
             <table class="w-full min-w-[40rem] text-[0.95rem]">
                 <thead>
-                    <tr class="border-b border-[#39435a] text-[#c7d1e0]">
+                    <tr class="border-b border-divider text-[#c7d1e0]">
                         <th scope="col" class="px-5 py-3 text-left font-medium">User</th>
                         <th scope="col" class="px-3 py-3 text-right font-medium">Images</th>
                         <th scope="col" class="px-3 py-3 text-right font-medium">Charged</th>
@@ -200,7 +200,7 @@ const only = ['report']
                     <tr
                         v-for="user in report.users.data"
                         :key="user.id"
-                        class="border-b border-[#2a3444] last:border-b-0"
+                        class="border-b border-divider-soft last:border-b-0"
                     >
                         <th scope="row" class="px-5 py-2 text-left font-normal">
                             <span class="font-semibold text-white">{{ user.name }}</span>

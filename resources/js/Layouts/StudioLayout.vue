@@ -78,7 +78,7 @@ const navLinks = [
             </p>
         </div>
 
-        <main class="mx-auto max-w-[100rem] px-5 py-8 sm:px-[3.4rem]">
+        <main class="mx-auto max-w-[100rem] px-5 py-6 sm:px-[3.4rem]">
             <slot />
         </main>
     </div>
