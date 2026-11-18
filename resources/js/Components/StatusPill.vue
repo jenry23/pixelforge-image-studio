@@ -12,9 +12,10 @@ const tone = {
     failed: 'text-fail border-fail/40',
     rejected: 'text-fail border-fail/40',
     unknown: 'text-estimate border-estimate/40',
+    unresolved: 'text-estimate border-estimate/40',
 }
 
-const isRunning = (s) => ['pending', 'queued', 'processing', 'unknown'].includes(s)
+const isRunning = (s) => ['pending', 'queued', 'processing', 'unknown', 'unresolved'].includes(s)
 </script>
 
 <template>

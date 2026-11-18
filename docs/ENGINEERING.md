@@ -33,6 +33,20 @@ database reports as changed is the one worker that owns the attempt. The claim
 is ours; Pixelforge's idempotency key and its in-flight cap are separate
 safeguards, and none of the three is allowed to rely on the others.
 
+The three are not equally strict, and it matters which is which:
+
+| Safeguard | Strength | Verified |
+|---|---|---|
+| Attempt claim (ours) | **exact** -- one generation, one worker | 12 parallel workers: 1 claim, `submit_attempts` = 1 |
+| Idempotency key (provider) | exact -- same key returns the same generation, nothing extra billed | docs; replay tests |
+| `max_in_flight` (ours) | **advisory only** | 8 parallel workers on 8 generations, cap 3: all 8 went through |
+
+`max_in_flight` is an unsynchronised `COUNT(*)`, so simultaneous workers on
+*different* generations all read the same figure and all proceed. It is a
+pressure valve, not a limit. The real limit is Pixelforge's, enforced with 429
+and honoured here through `Retry-After` backoff. Both figures come from
+`tests/concurrency/run.sh`, which is opt-in and not part of the Pest suite.
+
 A worker that exits cleanly clears its claim. A worker that is killed mid-request
 cannot, so a claim still held past `submit_lease_seconds` means a previous
 attempt reached an unknown end. The next worker marks the generation
@@ -46,7 +60,33 @@ may already have accepted and billed it.
 | Retries spent, nothing was created | `rejected` | released | nothing to do |
 | Retries spent, outcome unknown | `unknown` | **kept** | `ResolveUnknownGeneration` replays the idempotency key |
 | Worker killed mid-request | unchanged | kept | next attempt adopts the stale claim as unknown |
-| Resolution window closed | `rejected` | released | logged loudly; the admin report shows the gap |
+| Resolution window closed, still unknown | `unresolved` | **kept** | an operator, via `pixelforge:resolve-generation` |
+
+### What the 60-minute cutoff is, and is not
+
+`PIXELFORGE_RESOLVE_UNKNOWN_MINUTES` is **not** an idempotency deadline. The API
+docs are explicit: *"Keys are scoped to your account and never expire."* A replay
+is therefore just as valid a week later as a minute later, and nothing is lost by
+waiting.
+
+The cutoff is only the point where we stop replaying *automatically*, so a
+provider that is persistently unreachable cannot keep a job retrying forever.
+What it must never do is invent an answer. Earlier this path marked the
+generation `rejected` and released the hold, telling the user "You were not
+charged" about something Pixelforge may well have built and billed us for. It now
+parks the generation as `unresolved` with the hold intact, and escalates:
+
+```bash
+php artisan pixelforge:resolve-generation            # what is waiting
+php artisan pixelforge:resolve-generation <id>       # replay the key, settle on the answer
+php artisan pixelforge:resolve-generation <id> --release   # only after confirming nothing was created
+```
+
+Because the key never expires, the replay is always able to reach a definitive
+answer, so the hold is released on evidence rather than on a timer. `unresolved`
+ranks alongside `pending`, so a late webhook still settles it normally -- the
+hold becomes the charge, and the ledger's `UNIQUE(generation_id, type)` keeps
+that to exactly once however many deliveries arrive.
 
 Nothing in that table depends on a queue job surviving. `pixelforge:reconcile`
 runs every minute and re-dispatches `ResolveUnknownGeneration` for anything

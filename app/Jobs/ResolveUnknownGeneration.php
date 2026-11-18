@@ -46,7 +46,7 @@ class ResolveUnknownGeneration implements ShouldQueue
         }
 
         if ($this->windowHasClosed($generation)) {
-            $this->giveUp($generation, $ledger);
+            $this->parkForOperator($generation, $ledger);
 
             return;
         }
@@ -99,24 +99,41 @@ class ResolveUnknownGeneration implements ShouldQueue
         $this->finalise($generation, $ledger, $code, $message);
     }
 
-    private function giveUp(Generation $generation, LedgerWriter $ledger): void
+    /**
+     * Automatic replays stop here, but the question stays open. Pixelforge's
+     * idempotency keys never expire, so a replay can still settle this
+     * definitively whenever an operator asks -- which is why this must not be
+     * written down as a rejection. The hold stays with it.
+     */
+    private function parkForOperator(Generation $generation, LedgerWriter $ledger): void
     {
+        $ledger->forUser($generation->user_id, function () use ($generation): void {
+            $fresh = Generation::query()->whereKey($generation->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($fresh->status !== GenerationStatus::Unknown) {
+                return;
+            }
+
+            $fresh->forceFill([
+                'status' => GenerationStatus::Unresolved,
+                'status_event_at' => now(),
+                'error_code' => 'awaiting_operator',
+                'error_message' => 'We could not confirm this generation with Pixelforge. '
+                    .'It is being looked into, and your credit is still reserved until it is settled.',
+            ])->save();
+        });
+
         Log::error(
-            'Gave up resolving an unknown generation. If Pixelforge did create it, '
-            .'our provider cost will exceed our recorded spend and the admin '
-            .'reconciliation report will show the difference.',
+            'Stopped replaying an unknown generation automatically; it now needs an operator. '
+            .'The hold is deliberately still in place. Resolve it with '
+            .'`php artisan pixelforge:resolve-generation`, which replays the idempotency '
+            .'key (these never expire) and settles whatever Pixelforge reports.',
             [
                 'generation_id' => $generation->getKey(),
                 'idempotency_key' => $generation->idempotency_key,
                 'user_id' => $generation->user_id,
+                'held_nanodollars' => $generation->hold_nanodollars,
             ]
-        );
-
-        $this->finalise(
-            $generation,
-            $ledger,
-            'outcome_unconfirmed',
-            'We could not confirm this generation with Pixelforge, so we have cancelled it. You were not charged.',
         );
     }
 

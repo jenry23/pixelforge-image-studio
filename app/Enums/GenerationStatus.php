@@ -8,6 +8,7 @@ enum GenerationStatus: string
 {
     case Pending = 'pending';
     case Unknown = 'unknown';
+    case Unresolved = 'unresolved';
     case Queued = 'queued';
     case Processing = 'processing';
     case Succeeded = 'succeeded';
@@ -17,7 +18,7 @@ enum GenerationStatus: string
     public function rank(): int
     {
         return match ($this) {
-            self::Pending, self::Unknown => 0,
+            self::Pending, self::Unknown, self::Unresolved => 0,
             self::Queued => 1,
             self::Processing => 2,
             self::Succeeded, self::Failed, self::Rejected => 3,
@@ -44,6 +45,7 @@ enum GenerationStatus: string
         return match ($this) {
             self::Pending => 'Submitting',
             self::Unknown => 'Unconfirmed',
+            self::Unresolved => 'Needs review',
             self::Queued => 'Queued',
             self::Processing => 'Processing',
             self::Succeeded => 'Succeeded',

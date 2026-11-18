@@ -291,6 +291,17 @@ class SubmitGeneration implements ShouldQueue
         return (int) config('services.pixelforge.submit_lease_seconds', 120);
     }
 
+    /**
+     * Advisory, not a hard cap. This is an unsynchronised count, so workers
+     * submitting different generations at the same moment can all read the same
+     * figure and all go through -- measured at 8 in flight against a cap of 3
+     * with 8 concurrent workers. Making it hard would need a lock or a counting
+     * semaphore shared by every worker, which buys little: Pixelforge enforces
+     * its own limit and answers 429, which we honour with Retry-After backoff.
+     * What this does buy is keeping us from queueing work we already know the
+     * provider will refuse. The attempt claim is the safeguard that is exact,
+     * and it guards a different thing: one generation, one worker.
+     */
     private function providerIsAtCapacity(): bool
     {
         $max = (int) config('services.pixelforge.max_in_flight', 3);
