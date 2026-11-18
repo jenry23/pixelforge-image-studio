@@ -831,8 +831,10 @@ describe('a success webhook arriving after the resolution window has closed', fu
             ['Idempotent-Replayed' => 'true'],
         )]);
 
-        $this->artisan('pixelforge:resolve-generation', ['generation' => $generation->getKey()])
-            ->assertSuccessful();
+        $this->artisan('pixelforge:resolve-generation', [
+            'generation' => $generation->getKey(),
+            '--submit' => true,
+        ])->expectsConfirmation('Send it?', 'yes')->assertSuccessful();
 
         $generation->refresh();
         $this->user->refresh();
@@ -852,11 +854,14 @@ describe('a success webhook arriving after the resolution window has closed', fu
             'error_code' => 'awaiting_operator',
         ]);
 
+        // Pixelforge's list comes back without it, which is the evidence.
+        Http::fake(['*/generations*' => Http::response(['data' => [], 'has_more' => false])]);
+
         $this->artisan('pixelforge:resolve-generation', [
             'generation' => $generation->getKey(),
             '--release' => true,
         ])->expectsConfirmation(
-            'Only do this if you have confirmed with Pixelforge that nothing was created. Release the hold?',
+            'Release the hold and record this as never created? Check GET /v1/usage for the day first if it is old.',
             'yes',
         )->assertSuccessful();
 
@@ -877,7 +882,194 @@ describe('a success webhook arriving after the resolution window has closed', fu
         ]);
 
         $this->artisan('pixelforge:resolve-generation')
-            ->expectsOutputToContain('pixelforge:resolve-generation')
+            ->expectsOutputToContain('writes nothing')
             ->assertSuccessful();
+    });
+});
+
+describe('inspecting an unresolved generation without submitting anything', function () {
+    it('writes nothing and sends no create request', function () {
+        $generation = heldGeneration($this->user, '0.05', [
+            'status' => GenerationStatus::Unresolved,
+            'provider_id' => null,
+            'error_code' => 'awaiting_operator',
+        ]);
+
+        Http::fake(['*/generations*' => Http::response(['data' => [], 'has_more' => false])]);
+
+        $this->artisan('pixelforge:resolve-generation', ['generation' => $generation->getKey()])
+            ->assertSuccessful();
+
+        // Only the read. No POST, so nothing could have been created.
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'GET');
+        Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST');
+
+        $generation->refresh();
+        $this->user->refresh();
+
+        expect($generation->status)->toBe(GenerationStatus::Unresolved)
+            ->and($generation->hold_nanodollars)->toBe(50_000_000)
+            ->and($this->user->held()->toUsdString())->toBe('0.050000000')
+            ->and(CreditTransaction::query()
+                ->where('generation_id', $generation->getKey())
+                ->count())->toBe(1);
+    });
+
+    it('finds the generation by the id we put in metadata', function () {
+        $generation = heldGeneration($this->user, '0.05', [
+            'status' => GenerationStatus::Unresolved,
+            'provider_id' => null,
+        ]);
+
+        Http::fake(['*/generations*' => Http::response([
+            'data' => [
+                ProviderPayload::generation($generation, 'succeeded', ['id' => 'gen_FOUND0000000000000000001']),
+            ],
+            'has_more' => false,
+        ])]);
+
+        $this->artisan('pixelforge:resolve-generation', ['generation' => $generation->getKey()])
+            ->expectsOutputToContain('Pixelforge HAS this generation')
+            ->assertSuccessful();
+
+        // Still inspection only: finding it settles nothing by itself.
+        expect($generation->refresh()->status)->toBe(GenerationStatus::Unresolved)
+            ->and($generation->charged_nanodollars)->toBeNull();
+    });
+
+    it('refuses to release a hold when Pixelforge does have the generation', function () {
+        $generation = heldGeneration($this->user, '0.05', [
+            'status' => GenerationStatus::Unresolved,
+            'provider_id' => null,
+        ]);
+
+        Http::fake(['*/generations*' => Http::response([
+            'data' => [
+                ProviderPayload::generation($generation, 'succeeded', ['id' => 'gen_REAL00000000000000000001']),
+            ],
+            'has_more' => false,
+        ])]);
+
+        $this->artisan('pixelforge:resolve-generation', [
+            'generation' => $generation->getKey(),
+            '--release' => true,
+        ])->expectsOutputToContain('Releasing the hold would write off a real charge')
+            ->assertFailed();
+
+        $this->user->refresh();
+
+        // The hold survives, because there is something to pay for.
+        expect($generation->refresh()->hold_nanodollars)->toBe(50_000_000)
+            ->and($this->user->held()->toUsdString())->toBe('0.050000000');
+    });
+
+    it('refuses to call a generation missing when it ran out of pages to look at', function () {
+        $generation = heldGeneration($this->user, '0.05', [
+            'status' => GenerationStatus::Unresolved,
+            'provider_id' => null,
+        ]);
+
+        // Every page says there is more to come, so absence is never proven.
+        Http::fake(['*/generations*' => Http::response([
+            'data' => [], 'has_more' => true, 'next_cursor' => 'cur_more',
+        ])]);
+
+        $this->artisan('pixelforge:resolve-generation', [
+            'generation' => $generation->getKey(),
+            '--release' => true,
+        ])->expectsOutputToContain('not evidence')
+            ->assertFailed();
+
+        expect($generation->refresh()->hold_nanodollars)->toBe(50_000_000);
+    });
+});
+
+describe('a success webhook landing while an operator runs --release', function () {
+    it('keeps the provider answer and settles the ledger exactly once', function () {
+        $generation = heldGeneration($this->user, '0.05', [
+            'status' => GenerationStatus::Unresolved,
+            'provider_id' => null,
+            'error_code' => 'awaiting_operator',
+        ]);
+
+        $balanceBefore = $this->user->refresh()->balance()->nanodollars;
+
+        // The list says nothing exists, so the operator's evidence clears them
+        // to release -- but the webhook lands while they are still looking, so
+        // that evidence is stale by the time the row lock is taken.
+        Http::fake(['*/generations*' => function () use ($generation) {
+            deliverWebhook(ProviderPayload::eventFor($generation, 'succeeded'))->assertNoContent();
+
+            return Http::response(['data' => [], 'has_more' => false]);
+        }]);
+
+        $this->artisan('pixelforge:resolve-generation', [
+            'generation' => $generation->getKey(),
+            '--release' => true,
+        ])->expectsConfirmation(
+            'Release the hold and record this as never created? Check GET /v1/usage for the day first if it is old.',
+            'yes',
+        )->expectsOutputToContain('A webhook settled this as succeeded while you were deciding')
+            ->assertSuccessful();
+
+        $generation->refresh();
+        $this->user->refresh();
+
+        // The provider's answer wins; the operator's assumption is discarded.
+        expect($generation->status)->toBe(GenerationStatus::Succeeded)
+            ->and($generation->error_code)->not->toBe('released_by_operator')
+            ->and($generation->charged_nanodollars)->toBe(14_634_375)
+            ->and($generation->hold_nanodollars)->toBe(0)
+            ->and($this->user->held()->isZero())->toBeTrue()
+            ->and($this->user->balance()->nanodollars)->toBe($balanceBefore - 14_634_375);
+
+        // One charge, and no release competing with it.
+        expect(CreditTransaction::query()
+            ->where('generation_id', $generation->getKey())
+            ->where('type', TransactionType::Charge)
+            ->count())->toBe(1)
+            ->and(CreditTransaction::query()
+                ->where('generation_id', $generation->getKey())
+                ->where('type', TransactionType::Release)
+                ->count())->toBe(0);
+    });
+
+    it('still bills correctly when the release lands first', function () {
+        $generation = heldGeneration($this->user, '0.05', [
+            'status' => GenerationStatus::Unresolved,
+            'provider_id' => null,
+        ]);
+
+        $balanceBefore = $this->user->refresh()->balance()->nanodollars;
+
+        Http::fake(['*/generations*' => Http::response(['data' => [], 'has_more' => false])]);
+
+        $this->artisan('pixelforge:resolve-generation', [
+            'generation' => $generation->getKey(),
+            '--release' => true,
+        ])->expectsConfirmation(
+            'Release the hold and record this as never created? Check GET /v1/usage for the day first if it is old.',
+            'yes',
+        )->assertSuccessful();
+
+        expect($generation->refresh()->status)->toBe(GenerationStatus::Rejected)
+            ->and($this->user->refresh()->held()->isZero())->toBeTrue();
+
+        // Pixelforge had it after all, and says so afterwards.
+        deliverWebhook(ProviderPayload::eventFor($generation, 'succeeded'))->assertNoContent();
+
+        $generation->refresh();
+        $this->user->refresh();
+
+        // Rejected is not a wall against real provider news, so we bill it --
+        // once -- and the balance is right either way the race goes.
+        expect($generation->status)->toBe(GenerationStatus::Succeeded)
+            ->and($generation->charged_nanodollars)->toBe(14_634_375)
+            ->and($this->user->balance()->nanodollars)->toBe($balanceBefore - 14_634_375)
+            ->and($this->user->held()->isZero())->toBeTrue()
+            ->and(CreditTransaction::query()
+                ->where('generation_id', $generation->getKey())
+                ->where('type', TransactionType::Charge)
+                ->count())->toBe(1);
     });
 });

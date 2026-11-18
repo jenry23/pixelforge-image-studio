@@ -111,7 +111,7 @@ cat > "$WORK/report_capacity.php" <<'PHP'
 <?php
 require __DIR__.'/boot.php';
 $n = App\Models\Generation::query()->inFlightAtProvider()->count();
-echo "-> in flight={$n} against a cap of 3 (advisory: 8 is the expected result)\n\n";
+echo "-> in flight={$n} against a cap of 3 (advisory: expect above 3, not exactly 3)\n\n";
 PHP
 
 case "$MODE" in

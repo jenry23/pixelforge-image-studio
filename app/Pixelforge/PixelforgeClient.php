@@ -65,6 +65,58 @@ final readonly class PixelforgeClient
         return ProviderGeneration::fromArray($this->decode($response));
     }
 
+    /**
+     * Read-only. There is no lookup by idempotency key -- sending a key the
+     * provider never saw would create a generation -- so the only safe way to
+     * ask "does this exist?" is to page the list and match the generation id we
+     * put in metadata on the way out.
+     *
+     * @return array{generation: ?ProviderGeneration, scanned: int, exhausted: bool}
+     */
+    public function findByMetadataGenerationId(string $generationId, int $maxPages = 10): array
+    {
+        $cursor = null;
+        $scanned = 0;
+
+        for ($page = 0; $page < $maxPages; $page++) {
+            $query = array_filter([
+                'limit' => 100,
+                'cursor' => $cursor,
+            ], fn ($value): bool => $value !== null);
+
+            $response = $this->send(
+                fn (PendingRequest $request): Response => $request->get('/generations', $query)
+            );
+
+            $body = $this->decode($response);
+
+            foreach ($body['data'] ?? [] as $candidate) {
+                $scanned++;
+
+                if (($candidate['metadata']['generation_id'] ?? null) === $generationId) {
+                    return [
+                        'generation' => ProviderGeneration::fromArray($candidate),
+                        'scanned' => $scanned,
+                        'exhausted' => true,
+                    ];
+                }
+            }
+
+            if (($body['has_more'] ?? false) !== true) {
+                return ['generation' => null, 'scanned' => $scanned, 'exhausted' => true];
+            }
+
+            $cursor = $body['next_cursor'] ?? null;
+
+            if ($cursor === null) {
+                return ['generation' => null, 'scanned' => $scanned, 'exhausted' => true];
+            }
+        }
+
+        // Ran out of pages before running out of history: absence is not proven.
+        return ['generation' => null, 'scanned' => $scanned, 'exhausted' => false];
+    }
+
     public function pricing(): PricingCatalog
     {
         $response = $this->send(

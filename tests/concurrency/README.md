@@ -22,8 +22,9 @@ proceeded and the counter recorded 2: a lost update that left the provider's
 idempotency key as the only thing standing between us and 12 billable generations.
 
 `capacity` — 8 workers submitting 8 different generations with
-`PIXELFORGE_MAX_IN_FLIGHT=3`. All 8 go through, ending with 8 in flight. This is
-the expected result: the in-flight count is an unsynchronised read and is
-advisory by design. Pixelforge enforces the real limit with 429, which the job
-honours via Retry-After. Treat a non-8 result as a change in behaviour worth
-understanding, not as a pass or a fail.
+`PIXELFORGE_MAX_IN_FLIGHT=3`. Expect the count to land **above 3** — runs here
+have produced 6 and 8. The exact figure moves with scheduling, and that is the
+point: the in-flight count is an unsynchronised read, so it is advisory by
+design, not a limit. Pixelforge enforces the real one with 429, which the job
+honours via Retry-After. A run that came back with 3 would mean the behaviour
+had changed and the docs need revisiting; it is not a pass/fail assertion.

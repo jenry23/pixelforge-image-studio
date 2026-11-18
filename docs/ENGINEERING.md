@@ -39,10 +39,11 @@ The three are not equally strict, and it matters which is which:
 |---|---|---|
 | Attempt claim (ours) | **exact** -- one generation, one worker | 12 parallel workers: 1 claim, `submit_attempts` = 1 |
 | Idempotency key (provider) | exact -- same key returns the same generation, nothing extra billed | docs; replay tests |
-| `max_in_flight` (ours) | **advisory only** | 8 parallel workers on 8 generations, cap 3: all 8 went through |
+| `max_in_flight` (ours) | **advisory only** | 8 parallel workers on 8 generations, cap 3: 6-8 went through |
 
 `max_in_flight` is an unsynchronised `COUNT(*)`, so simultaneous workers on
-*different* generations all read the same figure and all proceed. It is a
+*different* generations read the same figure and proceed together; how far over
+the cap a run lands depends on scheduling. It is a
 pressure valve, not a limit. The real limit is Pixelforge's, enforced with 429
 and honoured here through `Retry-After` backoff. Both figures come from
 `tests/concurrency/run.sh`, which is opt-in and not part of the Pest suite.
@@ -82,8 +83,30 @@ php artisan pixelforge:resolve-generation <id>       # replay the key, settle on
 php artisan pixelforge:resolve-generation <id> --release   # only after confirming nothing was created
 ```
 
-Because the key never expires, the replay is always able to reach a definitive
-answer, so the hold is released on evidence rather than on a timer. `unresolved`
+### Replaying a key is a submission, not a lookup
+
+An idempotency key only replays if Pixelforge *received* the original request.
+The docs are explicit about the other case: *"If a POST request with an
+Idempotency-Key was never received by the server, sending that key later will
+create a new generation."* So the exact failure that produces an `unresolved`
+record -- we could not tell whether the request arrived -- is the one where
+re-sending might create and bill a second generation.
+
+There is no lookup-by-key endpoint. The read-only way to ask whether something
+exists is `GET /v1/generations`, matching on the `metadata.generation_id` we
+send on the way out. That is what inspection does, and why inspection is the
+default:
+
+```bash
+php artisan pixelforge:resolve-generation <id>            # read-only. Writes nothing, sends no POST
+php artisan pixelforge:resolve-generation <id> --submit   # RE-SENDS. May create and bill
+php artisan pixelforge:resolve-generation <id> --release  # frees the hold; re-checks first
+```
+
+`--release` will not take an operator's word for it: it runs the same read-only
+search itself and refuses if the generation turns up, or if the search hit its
+page limit before reaching the end of history. Absence is only evidence when the
+search was exhaustive. `unresolved`
 ranks alongside `pending`, so a late webhook still settles it normally -- the
 hold becomes the charge, and the ledger's `UNIQUE(generation_id, type)` keeps
 that to exactly once however many deliveries arrive.
@@ -99,6 +122,60 @@ the event matches on `metadata.generation_id` while `provider_id` is still null.
 The hold is only released on a *confirmed* negative. While the outcome is in
 doubt the user's credit stays reserved, because Pixelforge may have produced
 something we will be billed for.
+
+## Runbook: generations awaiting review
+
+**Who.** Whoever is on call for billing. These are holds on real user credit, so
+they do not wait for the next working day.
+
+**How they are found.** Three ways, and they should agree:
+
+1. `php artisan pixelforge:resolve-generation` lists everything parked, oldest
+   first, with the held amount and the idempotency key.
+2. The log line `Stopped replaying an unknown generation automatically` is
+   written at `error` level with the generation id, user id and held amount.
+   Alert on it.
+3. The admin billing report: a parked generation is money reserved and not
+   charged, so provider cost will exceed recorded spend for that day and the
+   reconciliation banner will say so.
+
+**What to do.**
+
+```bash
+php artisan pixelforge:resolve-generation                 # 1. what is waiting
+php artisan pixelforge:resolve-generation <id>            # 2. inspect. Read-only
+```
+
+Then follow what step 2 found:
+
+| Inspection says | Action | Why it is safe |
+|---|---|---|
+| Pixelforge HAS it | `--submit` | the key is known to them, so this replays; nothing extra is billed |
+| No record, search exhaustive | `--release` | nothing exists, so nothing is owed |
+| No record, search hit its page limit | **stop** | absence is unproven; narrow it down by hand |
+| Cannot reach Pixelforge | **stop** | the hold is safe where it is; try later |
+
+**Evidence required before `--release`.** All three:
+
+1. Inspection reports no record **and** says the search was exhaustive. The
+   command re-checks this itself and refuses otherwise.
+2. `GET /v1/usage` for the day the generation was created shows no cost that our
+   records cannot account for. The list endpoint pages back only so far; usage is
+   the backstop for anything old.
+3. Someone has read the original `error_message` and agrees the request plausibly
+   never left us.
+
+If 1 and 2 disagree, believe usage: it is the billing record. Releasing a hold on
+a generation Pixelforge did build means we absorb the cost silently, which is the
+one outcome none of this is allowed to produce.
+
+**Never** reach for `--submit` to "just check". It is a submission.
+
+**Races are safe either way.** `--release` re-reads the row under the user lock
+before writing, so a webhook that lands mid-decision wins and the hold becomes a
+charge. If the release gets there first, `rejected` is still overridable by real
+provider news, so a later success still bills -- once, by
+`UNIQUE(generation_id, type)`. Both orderings are tested.
 
 ## Running it
 
