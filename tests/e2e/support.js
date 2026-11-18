@@ -3,9 +3,11 @@ import { expect } from '@playwright/test'
 /** Sign in through the real form, as a user would. */
 export async function signIn(page, email = 'user@example.com', password = 'password') {
     await page.goto('/login')
-    await page.getByLabel('Email').fill(email)
-    await page.getByLabel('Password').fill(password)
-    await page.getByRole('button', { name: 'Log in' }).click()
+    // Target the inputs by id: the password field's show/hide toggle also
+    // carries "Password" in its aria-label, so getByLabel is ambiguous.
+    await page.locator('#email').fill(email)
+    await page.locator('#password').fill(password)
+    await page.getByRole('button', { name: 'Sign in' }).click()
     await expect(page).toHaveURL(/\/generate/)
 }
 

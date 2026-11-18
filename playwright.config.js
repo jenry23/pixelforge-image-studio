@@ -26,7 +26,8 @@ export default defineConfig({
     reporter: process.env.CI ? 'line' : [['list'], ['html', { open: 'never' }]],
 
     use: {
-        baseURL: process.env.APP_URL ?? 'http://127.0.0.1:8000',
+        // Matches the app's APP_URL; override with APP_URL=… to point elsewhere.
+        baseURL: process.env.APP_URL ?? 'http://localhost:3000',
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
     },

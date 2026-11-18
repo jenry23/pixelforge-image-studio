@@ -1,100 +1,172 @@
 <script setup>
-import Checkbox from '@/Components/Checkbox.vue';
-import GuestLayout from '@/Layouts/GuestLayout.vue';
-import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue'
+import { Head, Link, useForm } from '@inertiajs/vue3'
+import InputError from '@/Components/InputError.vue'
+import Eye from '@/Components/Icons/Eye.vue'
+import EyeSlash from '@/Components/Icons/EyeSlash.vue'
+import StarFour from '@/Components/Icons/StarFour.vue'
+import { useMediaQuery } from '@/Composables/useMediaQuery.js'
 
 defineProps({
-    canResetPassword: {
-        type: Boolean,
-    },
-    status: {
-        type: String,
-    },
-});
+    canResetPassword: { type: Boolean },
+    status: { type: String },
+})
 
 const form = useForm({
     email: '',
     password: '',
     remember: false,
-});
+})
+
+const showPassword = ref(false)
+
+/**
+ * The artwork is decorative, so it is not worth a download on a phone where it
+ * is never shown. `v-if` on this keeps the <img> out of the DOM entirely —
+ * hiding it with CSS would still fetch it.
+ */
+const showArtwork = useMediaQuery('(min-width: 1024px)')
 
 const submit = () => {
     form.post(route('login'), {
         onFinish: () => form.reset('password'),
-    });
-};
+    })
+}
 </script>
 
 <template>
-    <GuestLayout>
-        <Head title="Log in" />
+    <Head title="Sign in" />
 
-        <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
-            {{ status }}
+    <div class="min-h-screen bg-[#0e1522] lg:grid lg:grid-cols-[48fr_52fr]">
+        <!-- Form side -->
+        <div class="relative flex min-h-screen items-center justify-center px-6 py-20 sm:px-10 sm:py-28 lg:pl-[3.25rem]">
+            <Link
+                href="/"
+                class="absolute left-6 top-8 inline-flex items-center gap-2.5 rounded text-[1.35rem] font-semibold tracking-tight text-white sm:left-10 lg:left-[3.2rem] lg:top-[2.4rem]"
+            >
+                <StarFour class="size-7 shrink-0" />
+                Image Studio
+            </Link>
+
+            <div class="w-full max-w-[30.9rem]">
+                    <h1 class="text-[2.1rem] font-bold leading-[1.12] tracking-tight text-white sm:text-[2.8rem]">
+                        Sign in to Image Studio
+                    </h1>
+                    <p class="mt-[0.9rem] text-[1.1rem] leading-relaxed text-[#9aa5b4] sm:text-[1.28rem]">
+                        Generate images and track what each one costs.
+                    </p>
+
+                    <div
+                        v-if="status"
+                        class="mt-6 rounded-lg border border-ok/30 bg-ok/10 px-4 py-2.5 text-sm text-ok"
+                    >
+                        {{ status }}
+                    </div>
+
+                    <form class="mt-[2.1rem]" @submit.prevent="submit">
+                        <div>
+                            <label for="email" class="block text-[1.05rem] font-semibold leading-none text-white sm:text-[1.25rem]">
+                                Email
+                            </label>
+                            <input
+                                id="email"
+                                v-model="form.email"
+                                type="email"
+                                required
+                                autofocus
+                                autocomplete="username"
+                                placeholder="you@example.com"
+                                class="mt-[0.7rem] block h-[3.4rem] w-full sm:h-[3.75rem] rounded-xl border border-[#2b3443] bg-[#101723] px-4 text-[1.0625rem] text-white placeholder:text-[#7c8696] sm:text-[1.2rem] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd]"
+                            />
+                            <InputError class="mt-2" :message="form.errors.email" />
+                        </div>
+
+                        <div class="mt-[1.55rem]">
+                            <label for="password" class="block text-[1.05rem] font-semibold leading-none text-white sm:text-[1.25rem]">
+                                Password
+                            </label>
+                            <div class="relative mt-[0.7rem]">
+                                <input
+                                    id="password"
+                                    v-model="form.password"
+                                    :type="showPassword ? 'text' : 'password'"
+                                    required
+                                    autocomplete="current-password"
+                                    placeholder="Enter your password"
+                                    class="block h-[3.4rem] w-full rounded-xl border border-[#2b3443] bg-[#101723] pl-4 pr-14 sm:h-[3.75rem] text-[1.0625rem] text-white placeholder:text-[#7c8696] sm:text-[1.2rem] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd]"
+                                />
+                                <button
+                                    type="button"
+                                    :aria-label="showPassword ? 'Hide password' : 'Show password'"
+                                    :aria-pressed="showPassword"
+                                    class="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-[#9aa5b4] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8a9ffd]"
+                                    @click="showPassword = !showPassword"
+                                >
+                                    <component :is="showPassword ? EyeSlash : Eye" class="size-5" />
+                                </button>
+                            </div>
+                            <InputError class="mt-2" :message="form.errors.password" />
+                        </div>
+
+                        <div class="mt-[1.8rem] flex flex-wrap items-center justify-between gap-3">
+                            <label class="flex cursor-pointer items-center gap-3 text-[1rem] text-white sm:text-[1.1rem]">
+                                <input
+                                    v-model="form.remember"
+                                    type="checkbox"
+                                    name="remember"
+                                    class="size-[1.45rem] shrink-0 rounded-md border-2 border-[#3a4454] sm:size-[1.7rem] bg-transparent text-[#8a9ffd] focus:ring-1 focus:ring-[#8a9ffd] focus:ring-offset-0"
+                                />
+                                Remember me
+                            </label>
+
+                            <Link
+                                v-if="canResetPassword"
+                                :href="route('password.request')"
+                                class="text-[1rem] text-[#aec0f5] underline underline-offset-4 hover:text-white sm:text-[1.1rem]"
+                            >
+                                Forgot password?
+                            </Link>
+                        </div>
+
+                        <button
+                            type="submit"
+                            :disabled="form.processing"
+                            class="mt-[2.4rem] h-[3.5rem] w-full sm:h-[3.875rem] rounded-xl bg-[#8a9ffd] text-[1.05rem] font-bold sm:text-[1.15rem] text-[#0b1020] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8a9ffd] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0e1522] disabled:opacity-50"
+                        >
+                            {{ form.processing ? 'Signing in…' : 'Sign in' }}
+                        </button>
+
+                        <p class="mt-[1.75rem] text-center text-[1.05rem] text-white sm:text-[1.175rem]">
+                            New to Image Studio?
+                            <Link
+                                :href="route('register')"
+                                class="text-white underline underline-offset-4 hover:text-[#aec0f5]"
+                            >
+                                Create an account
+                            </Link>
+                        </p>
+                    </form>
+            </div>
         </div>
 
-        <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="email" value="Email" />
-
-                <TextInput
-                    id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    v-model="form.email"
-                    required
-                    autofocus
-                    autocomplete="username"
+        <!-- Artwork side. Desktop only: see useMediaQuery above. -->
+        <div v-if="showArtwork" class="hidden py-[1.3rem] pr-[1.3rem] lg:block">
+            <figure class="relative h-full overflow-hidden rounded-2xl">
+                <img
+                    src="/images/login-hero.webp"
+                    alt=""
+                    width="772"
+                    height="889"
+                    class="size-full object-cover"
                 />
-
-                <InputError class="mt-2" :message="form.errors.email" />
-            </div>
-
-            <div class="mt-4">
-                <InputLabel for="password" value="Password" />
-
-                <TextInput
-                    id="password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password"
-                    required
-                    autocomplete="current-password"
-                />
-
-                <InputError class="mt-2" :message="form.errors.password" />
-            </div>
-
-            <div class="mt-4 block">
-                <label class="flex items-center">
-                    <Checkbox name="remember" v-model:checked="form.remember" />
-                    <span class="ms-2 text-sm text-gray-600"
-                        >Remember me</span
-                    >
-                </label>
-            </div>
-
-            <div class="mt-4 flex items-center justify-end">
-                <Link
-                    v-if="canResetPassword"
-                    :href="route('password.request')"
-                    class="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                <!-- Caption lives in HTML, not baked into the asset, so it stays
+                     selectable, translatable and legible to screen readers. -->
+                <figcaption
+                    class="absolute bottom-6 left-6 text-[1.0625rem] font-semibold text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.55)]"
                 >
-                    Forgot your password?
-                </Link>
-
-                <PrimaryButton
-                    class="ms-4"
-                    :class="{ 'opacity-25': form.processing }"
-                    :disabled="form.processing"
-                >
-                    Log in
-                </PrimaryButton>
-            </div>
-        </form>
-    </GuestLayout>
+                    Studio sample
+                </figcaption>
+            </figure>
+        </div>
+    </div>
 </template>
