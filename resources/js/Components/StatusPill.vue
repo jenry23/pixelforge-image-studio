@@ -1,13 +1,16 @@
-<script setup>
-const props = defineProps({
-    status: { type: String, required: true },
-    label: { type: String, required: true },
-})
+<script setup lang="ts">
+import { computed } from 'vue'
+import Spinner from '@/Components/Icons/Spinner.vue'
 
-const tone = {
-    pending: 'text-muted border-line-bright',
-    queued: 'text-muted border-line-bright',
-    processing: 'text-measured border-measured/40',
+const props = defineProps<{
+    status: string
+    label: string
+}>()
+
+const tone: Record<string, string> = {
+    pending: 'text-[#8a9ffd] border-[#8a9ffd]/60',
+    queued: 'text-[#8a9ffd] border-[#8a9ffd]/60',
+    processing: 'text-[#8a9ffd] border-[#8a9ffd]/60',
     succeeded: 'text-ok border-ok/40',
     failed: 'text-fail border-fail/40',
     rejected: 'text-fail border-fail/40',
@@ -15,7 +18,9 @@ const tone = {
     unresolved: 'text-estimate border-estimate/40',
 }
 
-const isRunning = (s) => ['pending', 'queued', 'processing', 'unknown', 'unresolved'].includes(s)
+// Pixelforge reports no progress, only a status, so this says that work is
+// happening without implying how far along it is.
+const running = computed(() => ['pending', 'queued', 'processing'].includes(props.status))
 </script>
 
 <template>
@@ -23,9 +28,11 @@ const isRunning = (s) => ['pending', 'queued', 'processing', 'unknown', 'unresol
         class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs"
         :class="tone[props.status] ?? tone.pending"
     >
+        <Spinner v-if="running" class="size-3 shrink-0" />
         <span
+            v-else
             class="size-1.5 rounded-full bg-current"
-            :class="{ 'animate-pulse': isRunning(props.status) }"
+            :class="{ 'animate-pulse motion-reduce:animate-none': status === 'unknown' || status === 'unresolved' }"
             aria-hidden="true"
         />
         {{ props.label }}

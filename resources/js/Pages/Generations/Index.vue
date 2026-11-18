@@ -4,6 +4,7 @@ import { Head, router } from '@inertiajs/vue3'
 import GenerationModal from '@/Components/GenerationModal.vue'
 import Pagination from '@/Components/Pagination.vue'
 import TableSkeleton from '@/Components/TableSkeleton.vue'
+import ImagePlaceholder from '@/Components/Icons/ImagePlaceholder.vue'
 import StatusPill from '@/Components/StatusPill.vue'
 import StudioLayout from '@/Layouts/StudioLayout.vue'
 import { useAdaptivePolling } from '@/Composables/useAdaptivePolling'
@@ -69,6 +70,10 @@ async function close(): Promise<void> {
 
 function hasImage(generation: GenerationRow): boolean {
     return Boolean(generation.image_url) && !generation.image_expired
+}
+
+function isRunning(generation: GenerationRow): boolean {
+    return ['pending', 'queued', 'processing'].includes(generation.status)
 }
 
 function placeholderLabel(generation: GenerationRow): string {
@@ -177,6 +182,15 @@ function buyCredits(amount: string): void {
                             </button>
 
                             <div
+                                v-else-if="isRunning(generation)"
+                                class="flex size-[7.2rem] items-center justify-center rounded-xl border border-outline bg-[#0b111b] text-[#56637a]"
+                                :aria-label="placeholderLabel(generation)"
+                                role="img"
+                            >
+                                <ImagePlaceholder class="size-9" />
+                            </div>
+
+                            <div
                                 v-else
                                 class="flex size-[7.2rem] items-center justify-center rounded-xl border border-outline bg-[#0b111b] px-2 text-center text-[0.85rem] leading-tight text-[#8e9bb0]"
                             >
@@ -231,11 +245,13 @@ function buyCredits(amount: string): void {
                             </template>
 
                             <template v-else>
-                                <div class="text-xs text-[#9aa5b4]">Estimated</div>
-                                <div class="figure text-[1.35rem] text-estimate">
-                                    ${{ generation.estimated_charge.expected }}
+                                <div class="text-[0.95rem] text-[#c3ccd8]">Awaiting final charge</div>
+                                <div class="mt-0.5 text-xs text-[#9aa5b4]">
+                                    Estimated
+                                    <span class="figure text-estimate">
+                                        ${{ generation.estimated_charge.expected }}
+                                    </span>
                                 </div>
-                                <div class="mt-1 text-xs text-estimate/80">reserved until it finishes</div>
                             </template>
                         </td>
                     </tr>

@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import { expect, test } from '@playwright/test'
 import { signIn } from './support.js'
 
@@ -143,6 +144,70 @@ test.describe('history pagination', () => {
 
         await page.waitForURL(/page=2/)
         await expect(bar.locator('p')).toContainText(/Showing \d+–\d+ of \d+ generations/)
+    })
+})
+
+test.describe('a generation still running', () => {
+    test.beforeEach(async ({ page }) => {
+        execSync("php artisan tinker --execute=\"require 'tests/e2e/fixtures/seed-running.php';\"", {
+            stdio: 'ignore',
+        })
+        await signIn(page, 'user@example.com')
+        await page.goto('/history')
+    })
+
+    test('shows a spinner labelled with the real status, not a made-up percentage', async ({ page }) => {
+        const processing = page.locator('tbody tr').filter({ hasText: 'e2e in-flight fixture 1' })
+        const queued = page.locator('tbody tr').filter({ hasText: 'e2e in-flight fixture 0' })
+
+        // The label follows the provider's own status rather than a guess.
+        await expect(processing.getByText('Processing', { exact: true })).toBeVisible()
+        await expect(queued.getByText('Queued', { exact: true })).toBeVisible()
+
+        // A spinner, because Pixelforge reports no progress to show.
+        await expect(processing.locator('svg.animate-spin')).toBeVisible()
+        await expect(queued.locator('svg.animate-spin')).toBeVisible()
+        await expect(processing.getByText('%')).toHaveCount(0)
+    })
+
+    test('holds the row geometry so nothing jumps when the image lands', async ({ page }) => {
+        const running = page.locator('tbody tr').filter({ hasText: 'e2e in-flight fixture 1' })
+        const settled = page.locator('tbody tr').filter({ hasText: 'Succeeded' }).first()
+
+        const placeholder = await running.locator('td').first().locator('div').first().boundingBox()
+
+        if (await settled.count()) {
+            const thumbnail = await settled.locator('td').first().locator('button, div').first().boundingBox()
+            expect(Math.round(placeholder.width)).toBe(Math.round(thumbnail.width))
+            expect(Math.round(placeholder.height)).toBe(Math.round(thumbnail.height))
+        }
+
+        // Square, and the same box the finished thumbnail occupies.
+        expect(Math.round(placeholder.width)).toBe(Math.round(placeholder.height))
+    })
+
+    test('says the charge is not final yet and shows the estimate', async ({ page }) => {
+        const running = page.locator('tbody tr').filter({ hasText: 'e2e in-flight fixture 1' })
+
+        await expect(running.getByText('Awaiting final charge')).toBeVisible()
+
+        // The estimate stays visible, and stays amber, until the provider settles.
+        const estimate = running.locator('.figure.text-estimate')
+        await expect(estimate).toBeVisible()
+        await expect(estimate).toHaveText(/\$\d+\.\d+/)
+    })
+
+    test('keeps the label readable with reduced motion', async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: 'reduce' })
+        await page.reload()
+
+        const processing = page.locator('tbody tr').filter({ hasText: 'e2e in-flight fixture 1' })
+
+        // The spinner stops, but the word stays -- the status is still legible.
+        await expect(processing.getByText('Processing', { exact: true })).toBeVisible()
+        expect(
+            await processing.locator('svg.animate-spin').evaluate((el) => getComputedStyle(el).animationName),
+        ).toBe('none')
     })
 })
 
