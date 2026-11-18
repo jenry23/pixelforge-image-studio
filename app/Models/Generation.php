@@ -44,6 +44,7 @@ class Generation extends Model
             'provider_started_at' => 'immutable_datetime',
             'provider_completed_at' => 'immutable_datetime',
             'first_submit_attempted_at' => 'immutable_datetime',
+            'submit_claimed_at' => 'immutable_datetime',
             'settled_at' => 'immutable_datetime',
         ];
     }

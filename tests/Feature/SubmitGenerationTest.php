@@ -12,6 +12,7 @@ use App\Models\CreditTransaction;
 use App\Models\Generation;
 use App\Models\User;
 use App\Pixelforge\PixelforgeClient;
+use App\Pixelforge\ProviderGeneration;
 use GuzzleHttp\Promise\PromiseInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -505,5 +506,231 @@ describe('resolving an unknown outcome', function () {
         );
 
         Http::assertNothingSent();
+    });
+});
+
+describe('a worker that dies mid-submission', function () {
+    it('reuses the original idempotency key and adopts the generation Pixelforge already made', function () {
+        // The worker claimed an attempt, reached Pixelforge, and was killed
+        // before it could write the response. Its claim outlives it.
+        $generation = pendingGeneration($this->user, [
+            'submit_attempts' => 1,
+            'submit_claimed_at' => now()->subMinutes(10),
+            'first_submit_attempted_at' => now()->subMinutes(10),
+        ]);
+
+        $key = $generation->idempotency_key;
+
+        Http::fake(['*/generations' => acceptedResponse($generation, ['Idempotent-Replay' => 'true'])]);
+
+        runSubmit($generation);
+
+        // Same key, so Pixelforge hands back the generation it already created
+        // rather than making a second billable one.
+        Http::assertSent(fn (Request $request) => $request->header('Idempotency-Key')[0] === $key);
+        Http::assertSentCount(1);
+
+        expect($generation->refresh()->provider_id)->toBe('gen_ACCEPTED000000000000000001')
+            ->and($generation->status)->toBe(GenerationStatus::Queued)
+            ->and($generation->submit_claimed_at)->toBeNull();
+    });
+
+    it('treats a killed last attempt as unknown rather than writing it off as failed', function () {
+        Bus::fake([ResolveUnknownGeneration::class]);
+
+        // The final attempt was claimed and never came back. Pixelforge may well
+        // have accepted it, so this must not be recorded as a clean failure.
+        $generation = pendingGeneration($this->user, [
+            'submit_attempts' => 6,
+            'submit_outcome_unknown' => false,
+            'submit_claimed_at' => now()->subMinutes(10),
+            'first_submit_attempted_at' => now()->subMinutes(10),
+        ]);
+        Http::fake();
+
+        runSubmit($generation);
+
+        $generation->refresh();
+        $this->user->refresh();
+
+        expect($generation->status)->toBe(GenerationStatus::Unknown)
+            ->and($generation->error_code)->toBe('outcome_unknown')
+            // The hold stays, because there may be something to pay for.
+            ->and($generation->hold_nanodollars)->toBe(50_000_000)
+            ->and($this->user->held()->toUsdString())->toBe('0.050000000');
+
+        Bus::assertDispatched(ResolveUnknownGeneration::class);
+    });
+
+    it('leaves a claim that is still inside its lease alone', function () {
+        // A living worker holds this one; a second worker must not barge in.
+        $generation = pendingGeneration($this->user, [
+            'submit_attempts' => 1,
+            'submit_claimed_at' => now()->subSeconds(5),
+        ]);
+        Http::fake();
+
+        $job = runSubmit($generation);
+
+        Http::assertNothingSent();
+        $job->assertReleased();
+        expect($generation->refresh()->submit_attempts)->toBe(1)
+            ->and($generation->submit_outcome_unknown)->toBeFalse();
+    });
+});
+
+describe('two workers picking up the same generation', function () {
+    it('lets exactly one of them claim the attempt', function () {
+        $generation = pendingGeneration($this->user);
+        Http::fake(['*/generations' => acceptedResponse($generation)]);
+
+        $first = new SubmitGeneration($generation->getKey());
+        $second = new SubmitGeneration($generation->getKey());
+
+        // Both workers are inside handle() before either has finished: the
+        // claim is the only thing standing between them.
+        $claim = new ReflectionMethod(SubmitGeneration::class, 'claim');
+
+        expect($claim->invoke($first, 6))->toBeTrue()
+            ->and($claim->invoke($second, 6))->toBeFalse();
+
+        // One claim, one attempt consumed -- no lost update.
+        expect($generation->refresh()->submit_attempts)->toBe(1);
+    });
+
+    it('never lets two workers bill the same generation twice', function () {
+        $generation = pendingGeneration($this->user);
+        Http::fake(['*/generations' => acceptedResponse($generation)]);
+
+        runSubmit($generation);
+
+        $provider = ProviderGeneration::fromArray(ProviderPayload::generation(
+            $generation->refresh(),
+            'succeeded',
+            ['id' => $generation->refresh()->provider_id],
+        ));
+
+        // Both workers settle the same completed generation.
+        app(ApplyProviderState::class)($generation, $provider);
+        app(ApplyProviderState::class)($generation->refresh(), $provider);
+
+        $charges = CreditTransaction::query()
+            ->where('generation_id', $generation->getKey())
+            ->where('type', TransactionType::Charge)
+            ->count();
+
+        expect($charges)->toBe(1);
+    });
+
+    it('never lets two workers settle the same hold twice', function () {
+        $generation = pendingGeneration($this->user, ['submit_attempts' => 6, 'error_code' => 'overloaded']);
+        Http::fake();
+
+        runSubmit($generation);
+        runSubmit($generation->refresh());
+
+        $releases = CreditTransaction::query()
+            ->where('generation_id', $generation->getKey())
+            ->where('type', TransactionType::Release)
+            ->count();
+
+        $this->user->refresh();
+
+        expect($releases)->toBe(1)
+            ->and($this->user->held()->isZero())->toBeTrue()
+            ->and($this->user->balance()->toUsdString())->toBe('5.000000000');
+    });
+
+    it('counts the provider cap over generations, not over workers', function () {
+        // The in-flight cap and the attempt claim guard different things: the
+        // cap is the provider's rule, the claim is ours.
+        config(['services.pixelforge.max_in_flight' => 1]);
+
+        Generation::factory()->queued()->create(['user_id' => $this->user->id]);
+
+        $generation = pendingGeneration($this->user);
+        Http::fake();
+
+        $job = runSubmit($generation);
+
+        Http::assertNothingSent();
+        $job->assertReleased();
+        // Held back by the cap, so no attempt was spent and no claim was taken.
+        expect($generation->refresh()->submit_attempts)->toBe(0)
+            ->and($generation->submit_claimed_at)->toBeNull();
+    });
+});
+
+describe('a webhook that arrives while the retry budget is running out', function () {
+    it('settles the generation even though we never saw the create response', function () {
+        Bus::fake([ResolveUnknownGeneration::class]);
+
+        // Retries are spent and the outcome is unknown: the generation is
+        // parked, holding the user's credit, with no provider id on record.
+        $generation = pendingGeneration($this->user, [
+            'submit_attempts' => 6,
+            'submit_outcome_unknown' => true,
+            'first_submit_attempted_at' => now()->subMinute(),
+        ]);
+        Http::fake();
+
+        runSubmit($generation);
+
+        expect($generation->refresh()->status)->toBe(GenerationStatus::Unknown)
+            ->and($generation->provider_id)->toBeNull();
+
+        // Pixelforge had accepted it after all, and now reports success. The
+        // event carries our own id in metadata, which is the only way to match
+        // it while provider_id is still unknown.
+        deliverWebhook(ProviderPayload::eventFor($generation, 'succeeded'))->assertNoContent();
+
+        $generation->refresh();
+        $this->user->refresh();
+
+        expect($generation->status)->toBe(GenerationStatus::Succeeded)
+            ->and($generation->provider_id)->not->toBeNull()
+            ->and($generation->charged_nanodollars)->toBeGreaterThan(0)
+            // The hold became a charge rather than being released and re-taken.
+            ->and($generation->hold_nanodollars)->toBe(0)
+            ->and($this->user->held()->isZero())->toBeTrue();
+
+        expect(CreditTransaction::query()
+            ->where('generation_id', $generation->getKey())
+            ->where('type', TransactionType::Charge)
+            ->count())->toBe(1);
+    });
+
+    it('does not double charge when the resolver and the webhook race', function () {
+        $generation = pendingGeneration($this->user, [
+            'status' => GenerationStatus::Unknown,
+            'submit_attempts' => 6,
+            'submit_outcome_unknown' => true,
+            'first_submit_attempted_at' => now()->subMinute(),
+        ]);
+
+        // The webhook lands first.
+        deliverWebhook(ProviderPayload::eventFor($generation, 'succeeded'))->assertNoContent();
+        $charged = $generation->refresh()->charged_nanodollars;
+
+        // Then the resolver replays the idempotency key and gets the same
+        // generation back from Pixelforge.
+        Http::fake(['*/generations' => Http::response(
+            ProviderPayload::generation($generation, 'succeeded', ['id' => $generation->provider_id]),
+            200,
+            ['Idempotent-Replay' => 'true'],
+        )]);
+
+        (new ResolveUnknownGeneration($generation->getKey()))
+            ->withFakeQueueInteractions()
+            ->handle(app(PixelforgeClient::class), app(ApplyProviderState::class), app(LedgerWriter::class));
+
+        $this->user->refresh();
+
+        expect($generation->refresh()->charged_nanodollars)->toBe($charged)
+            ->and(CreditTransaction::query()
+                ->where('generation_id', $generation->getKey())
+                ->where('type', TransactionType::Charge)
+                ->count())->toBe(1)
+            ->and($this->user->held()->isZero())->toBeTrue();
     });
 });

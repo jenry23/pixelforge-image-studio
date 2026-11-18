@@ -26,6 +26,40 @@ it is the design this was built from and explains every decision below.
    key `GET /v1/usage` uses, and a date cast would write `… 00:00:00` and silently
    stop matching.
 
+## Recovery paths for an in-doubt submission
+
+A submit attempt is claimed with one conditional `UPDATE`, and the row that the
+database reports as changed is the one worker that owns the attempt. The claim
+is ours; Pixelforge's idempotency key and its in-flight cap are separate
+safeguards, and none of the three is allowed to rely on the others.
+
+A worker that exits cleanly clears its claim. A worker that is killed mid-request
+cannot, so a claim still held past `submit_lease_seconds` means a previous
+attempt reached an unknown end. The next worker marks the generation
+`submit_outcome_unknown` before deciding anything else. That is what stops a
+killed *final* attempt from being written off as a clean failure when Pixelforge
+may already have accepted and billed it.
+
+| Situation | Status | Hold | What resolves it |
+|---|---|---|---|
+| Provider refused it | `rejected` | released | nothing to do |
+| Retries spent, nothing was created | `rejected` | released | nothing to do |
+| Retries spent, outcome unknown | `unknown` | **kept** | `ResolveUnknownGeneration` replays the idempotency key |
+| Worker killed mid-request | unchanged | kept | next attempt adopts the stale claim as unknown |
+| Resolution window closed | `rejected` | released | logged loudly; the admin report shows the gap |
+
+Nothing in that table depends on a queue job surviving. `pixelforge:reconcile`
+runs every minute and re-dispatches `ResolveUnknownGeneration` for anything
+sitting in `unknown`, re-dispatches `SubmitGeneration` for anything `pending`
+with no `provider_id` after two minutes, and polls generations in flight at the
+provider. A success webhook arriving at any point in this is applied normally:
+`unknown` ranks alongside `pending`, so it never blocks a terminal state, and
+the event matches on `metadata.generation_id` while `provider_id` is still null.
+
+The hold is only released on a *confirmed* negative. While the outcome is in
+doubt the user's credit stays reserved, because Pixelforge may have produced
+something we will be billed for.
+
 ## Running it
 
 Three processes are required, not one:

@@ -17,6 +17,7 @@ use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class SubmitGeneration implements ShouldQueue
@@ -47,6 +48,8 @@ class SubmitGeneration implements ShouldQueue
             return;
         }
 
+        $this->adoptCrashedAttempt($generation);
+
         $maxAttempts = (int) config('services.pixelforge.submit_max_attempts', 6);
 
         if ($generation->submit_attempts >= $maxAttempts) {
@@ -63,10 +66,13 @@ class SubmitGeneration implements ShouldQueue
             return;
         }
 
-        $generation->forceFill([
-            'submit_attempts' => $generation->submit_attempts + 1,
-            'first_submit_attempted_at' => $generation->first_submit_attempted_at ?? now(),
-        ])->save();
+        if (! $this->claim($maxAttempts)) {
+            $this->release((int) config('services.pixelforge.claim_wait_seconds', 5));
+
+            return;
+        }
+
+        $generation->refresh();
 
         try {
             $result = $client->createGeneration(
@@ -74,18 +80,23 @@ class SubmitGeneration implements ShouldQueue
                 $generation->idempotency_key,
             );
         } catch (ThrottledException $e) {
+            $this->releaseClaim($generation);
             $this->handleThrottled($generation, $ledger, $e);
 
             return;
         } catch (RejectedException $e) {
+            $this->releaseClaim($generation);
             $this->reject($generation, $ledger, $e->errorCode ?? 'rejected', $e->getMessage());
 
             return;
         } catch (AmbiguousOutcomeException $e) {
+            $this->releaseClaim($generation);
             $this->handleAmbiguous($generation, $ledger, $e);
 
             return;
         }
+
+        $this->releaseClaim($generation);
 
         if ($result->wasReplayed) {
             Log::info('Adopted an existing Pixelforge generation via idempotent replay.', [
@@ -197,6 +208,87 @@ class SubmitGeneration implements ShouldQueue
 
             $ledger->release($user, $fresh, 'Submission rejected; nothing was billed');
         });
+    }
+
+    /**
+     * One attempt, claimed in a single conditional UPDATE. Whoever the database
+     * reports as having changed the row owns the attempt; everyone else backs
+     * off. This is our own safeguard, independent of the provider's idempotency
+     * key and of its in-flight cap.
+     */
+    private function claim(int $maxAttempts): bool
+    {
+        $claimed = Generation::query()
+            ->whereKey($this->generationId)
+            ->whereNull('provider_id')
+            ->whereNotIn('status', [
+                GenerationStatus::Succeeded,
+                GenerationStatus::Failed,
+                GenerationStatus::Rejected,
+            ])
+            ->where('submit_attempts', '<', $maxAttempts)
+            ->where(fn ($query) => $query
+                ->whereNull('submit_claimed_at')
+                ->orWhere('submit_claimed_at', '<=', now()->subSeconds($this->leaseSeconds())))
+            ->update([
+                'submit_attempts' => DB::raw('submit_attempts + 1'),
+                'submit_claimed_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        if ($claimed === 0) {
+            return false;
+        }
+
+        Generation::query()
+            ->whereKey($this->generationId)
+            ->whereNull('first_submit_attempted_at')
+            ->update(['first_submit_attempted_at' => now()]);
+
+        return true;
+    }
+
+    private function releaseClaim(Generation $generation): void
+    {
+        Generation::query()
+            ->whereKey($this->generationId)
+            ->update(['submit_claimed_at' => null]);
+
+        $generation->submit_claimed_at = null;
+    }
+
+    /**
+     * A claim still held past its lease belongs to a worker that was killed
+     * mid-request. It may well have reached Pixelforge, so the outcome is
+     * unknown rather than failed -- which is what keeps the last attempt from
+     * being written off as a clean failure.
+     */
+    private function adoptCrashedAttempt(Generation $generation): void
+    {
+        if ($generation->submit_claimed_at === null) {
+            return;
+        }
+
+        if ($generation->submit_claimed_at->addSeconds($this->leaseSeconds())->isFuture()) {
+            return;
+        }
+
+        Log::warning('Found a submit attempt whose worker never finished; treating the outcome as unknown.', [
+            'generation_id' => $generation->getKey(),
+            'idempotency_key' => $generation->idempotency_key,
+            'claimed_at' => $generation->submit_claimed_at->toIso8601String(),
+            'attempts' => $generation->submit_attempts,
+        ]);
+
+        $generation->forceFill([
+            'submit_outcome_unknown' => true,
+            'submit_claimed_at' => null,
+        ])->save();
+    }
+
+    private function leaseSeconds(): int
+    {
+        return (int) config('services.pixelforge.submit_lease_seconds', 120);
     }
 
     private function providerIsAtCapacity(): bool
