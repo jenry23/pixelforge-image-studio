@@ -11,7 +11,7 @@ Route::get('/', fn () => auth()->check()
     ? redirect()->route('generations.create')
     : redirect()->route('login'));
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'no-store', 'encrypt-history'])->group(function () {
     Route::redirect('/dashboard', '/generate')->name('dashboard');
 
     Route::get('/generate', [GenerationController::class, 'create'])->name('generations.create');
@@ -25,14 +25,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/credits', [CreditController::class, 'store'])->name('credits.store');
 });
 
-Route::middleware(['auth', 'verified', 'admin'])
+Route::middleware(['auth', 'verified', 'admin', 'no-store', 'encrypt-history'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
         Route::get('/report', ReportController::class)->name('report');
     });
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'no-store', 'encrypt-history'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

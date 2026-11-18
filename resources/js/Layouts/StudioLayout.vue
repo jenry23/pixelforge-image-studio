@@ -18,7 +18,7 @@ const navLinks = [
 <template>
     <div class="min-h-screen bg-[#0e1522]">
         <header class="border-b border-[#1d2635]">
-            <div class="mx-auto flex max-w-[82rem] flex-wrap items-center gap-x-8 gap-y-3 px-5 py-4 sm:px-8">
+            <div class="mx-auto flex max-w-[100rem] flex-wrap items-center gap-x-8 gap-y-3 px-5 py-4 sm:px-[3.4rem]">
                 <Link
                     :href="route('generations.create')"
                     class="inline-flex items-center gap-2.5 text-[1.15rem] font-semibold tracking-tight text-white"
@@ -73,12 +73,12 @@ const navLinks = [
         </header>
 
         <div v-if="flash.success" class="border-b border-ok/30 bg-ok/10">
-            <p class="mx-auto max-w-[82rem] px-5 py-2.5 text-sm text-ok sm:px-8">
+            <p class="mx-auto max-w-[100rem] px-5 py-2.5 text-sm text-ok sm:px-[3.4rem]">
                 {{ flash.success }}
             </p>
         </div>
 
-        <main class="mx-auto max-w-[82rem] px-5 py-9 sm:px-8">
+        <main class="mx-auto max-w-[100rem] px-5 py-8 sm:px-[3.4rem]">
             <slot />
         </main>
     </div>
