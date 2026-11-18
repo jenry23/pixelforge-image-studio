@@ -271,3 +271,5 @@ presented as confirmed when nothing confirmed them.
 - **Rotating the signing secret** invalidates in-flight deliveries. Update
   `PIXELFORGE_WEBHOOK_SECRET` immediately after rotating; the reconciler will
   settle anything missed in the gap.
+
+  
