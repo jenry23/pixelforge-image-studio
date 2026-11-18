@@ -170,7 +170,7 @@ test.describe('the estimate range', () => {
     test('names which figure is expected, lowest and highest', async ({ page }) => {
         // The bar itself is hidden from assistive tech, so every figure it plots
         // has to be announced as labelled text.
-        await expect(page.getByText('Expected charge', { exact: true }).first()).toBeAttached()
+        await expect(page.getByText('Expected charge', { exact: true })).toBeVisible()
         await expect(page.getByText('Lowest estimate', { exact: true })).toBeAttached()
         await expect(page.getByText('Highest estimate', { exact: true })).toBeAttached()
     })

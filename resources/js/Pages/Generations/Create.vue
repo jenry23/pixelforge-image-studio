@@ -223,11 +223,10 @@ function submit(): void {
             </div>
 
             <div class="mt-4 flex flex-wrap items-baseline gap-x-3">
-                <span class="sr-only">Expected charge</span>
                 <span data-testid="estimate-expected" class="figure text-[2.1rem] text-white">
                     ${{ estimate.charge.expected.usd.slice(0, 8) }}
                 </span>
-                <span class="text-sm text-[#9aa5b4]" aria-hidden="true">Expected charge</span>
+                <span class="text-sm text-[#9aa5b4]">Expected charge</span>
             </div>
 
             <div class="mt-5">
