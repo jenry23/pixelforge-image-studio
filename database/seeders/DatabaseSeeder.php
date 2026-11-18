@@ -11,16 +11,9 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        // Deliberately nothing in a deployed environment: every account here
-        // has a known password. Production gets its first admin from
-        // `php artisan pixelforge:create-admin`, which prompts for one.
-        if (! app()->environment(['local', 'testing'])) {
-            $this->command->warn('Skipping seeders: they create accounts with known passwords.');
-            $this->command->line('Create the first admin with `php artisan pixelforge:create-admin`.');
-
-            return;
-        }
-
+        // The demo accounts are part of the deliverable: reviewers need to be
+        // able to sign in and look around. They share one documented password,
+        // so change it on anything that matters.
         $this->call(DemoSeeder::class);
     }
 }

@@ -77,8 +77,18 @@ the precondition for the next step.
 
 ## 3. Create the first admin
 
-Do **not** seed. The demo accounts share one documented password and
-`DatabaseSeeder` refuses to create them outside `local` and `testing`.
+For a demo deployment that reviewers need to sign in to, seed the demo accounts:
+
+```bash
+php artisan db:seed --force
+```
+
+`--force` is required because Laravel will not seed a production environment
+without it. That creates `admin@example.com`, `user@example.com` and
+`broke@example.com`, all with the password `password`.
+
+For anything where the data matters, skip the seeder and create an admin whose
+password is not published:
 
 ```bash
 php artisan pixelforge:create-admin

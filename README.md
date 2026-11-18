@@ -42,11 +42,10 @@ Start each process in its own terminal.
 
 ### Demo accounts
 
-`migrate --seed` creates these only in `local` and `testing`. They share one
-password, so the seeders refuse to run anywhere else; a deployed environment gets
-its first admin from `php artisan pixelforge:create-admin`, which prompts for one.
-
-All three seeded accounts use the password `password`.
+All three seeded accounts use the password `password`. They are seeded on the
+deployed demo too, so reviewers can sign in and look around. For anything real,
+create an admin with `php artisan pixelforge:create-admin`, which prompts for a
+password instead, and do not seed.
 
 | Email | Access | Starting credit |
 |---|---|---:|

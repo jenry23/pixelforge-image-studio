@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Models\User;
-use Database\Seeders\DemoSeeder;
 use Illuminate\Support\Facades\Hash;
 
 it('creates an admin with a password typed at the prompt', function () {
@@ -51,16 +50,6 @@ it('will not take an email that already exists', function () {
 
     $this->artisan('pixelforge:create-admin', ['--email' => 'taken@imagestudio.test', '--name' => 'Ops'])
         ->assertFailed();
-});
-
-it('refuses to seed demo accounts outside local and testing', function () {
-    app()->detectEnvironment(fn (): string => 'production');
-
-    expect(fn () => (new DemoSeeder)->run())
-        ->toThrow(RuntimeException::class, 'will not run in production');
-
-    // The known-password admin was never created.
-    expect(User::query()->where('email', 'admin@example.com')->exists())->toBeFalse();
 });
 
 it('takes the password from the environment when there is no tty', function () {
