@@ -95,7 +95,7 @@
 
     .field {
         background-color: var(--color-ink);
-        border: 1px solid var(--color-line);
+        border: 1px solid var(--color-outline);
         color: var(--color-body);
         border-radius: 0.375rem;
     }

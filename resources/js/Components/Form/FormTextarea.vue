@@ -65,7 +65,7 @@ const count = computed(() => [...model.value].length)
             :disabled="disabled"
             :aria-describedby="describedBy"
             :aria-invalid="error ? true : undefined"
-            class="mt-3 block w-full resize-y rounded-xl border border-[#262d39] bg-[#101723] px-4 py-3 text-[1.0625rem] leading-relaxed text-white placeholder:text-[#a5acb7] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd] disabled:opacity-60"
+            class="mt-3 block w-full resize-y rounded-xl border border-outline bg-[#101723] px-4 py-3 text-[1.0625rem] leading-relaxed text-white placeholder:text-[#a5acb7] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd] disabled:opacity-60"
         />
 
         <div class="mt-2 flex items-start justify-between gap-4">

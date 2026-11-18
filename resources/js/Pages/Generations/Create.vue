@@ -230,9 +230,9 @@ function submit(): void {
             </div>
 
             <div class="mt-5">
-                <div class="relative h-px bg-[#2f3a4a]">
-                    <span class="absolute -top-1 left-0 h-2 w-px bg-[#2f3a4a]" aria-hidden="true" />
-                    <span class="absolute -top-1 right-0 h-2 w-px bg-[#2f3a4a]" aria-hidden="true" />
+                <div class="relative h-px bg-outline/60">
+                    <span class="absolute -top-1 left-0 h-2 w-px bg-outline" aria-hidden="true" />
+                    <span class="absolute -top-1 right-0 h-2 w-px bg-outline" aria-hidden="true" />
                     <span
                         class="absolute -top-[3px] size-2 rounded-full bg-[#8a9ffd] ring-2 ring-surface"
                         :style="{ left: `calc(${markerPosition}% - 4px)` }"
