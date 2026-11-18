@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -12,9 +11,16 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // Deliberately nothing in a deployed environment: every account here
+        // has a known password. Production gets its first admin from
+        // `php artisan pixelforge:create-admin`, which prompts for one.
+        if (! app()->environment(['local', 'testing'])) {
+            $this->command->warn('Skipping seeders: they create accounts with known passwords.');
+            $this->command->line('Create the first admin with `php artisan pixelforge:create-admin`.');
+
+            return;
+        }
+
+        $this->call(DemoSeeder::class);
     }
 }

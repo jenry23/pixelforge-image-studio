@@ -9,11 +9,22 @@ use App\Models\User;
 use App\Pixelforge\Money;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
 class DemoSeeder extends Seeder
 {
     public function run(): void
     {
+        // These accounts share one documented password. They exist so the app
+        // can be demonstrated and driven by the browser tests, and they must
+        // never reach a deployed environment.
+        if (! app()->environment(['local', 'testing'])) {
+            throw new RuntimeException(
+                'DemoSeeder creates accounts with a known password and will not run in '
+                .app()->environment().'. Use `php artisan pixelforge:create-admin` instead.'
+            );
+        }
+
         $ledger = app(LedgerWriter::class);
 
         foreach ([
