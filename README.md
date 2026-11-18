@@ -177,7 +177,8 @@ app/
 resources/js/
   Components/        MoneyFigure, CostBand, CostBreakdown, StatusPill, …
   Pages/             Generations/Create, Generations/Index, Admin/Report
-docs/superpowers/specs/   the design document this was built from
+docs/DESIGN.md       the design this was built from
+docs/ENGINEERING.md  invariants, recovery paths, operator runbook
 ```
 
 ## Design notes

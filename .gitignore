@@ -25,3 +25,12 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+/test-results
+/playwright-report
+/blob-report
+.claude/
+.codex/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.mcp.json

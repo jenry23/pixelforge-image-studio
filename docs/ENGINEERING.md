@@ -1,10 +1,10 @@
-# Image Studio — working notes
+# Engineering notes
 
 A Laravel 13 + Vue 3 + Inertia 2 app that generates images through Pixelforge and
 records what each one costs.
 
-Read `docs/superpowers/specs/2026-11-18-pixelforge-image-studio-design.md` first;
-it is the design this was built from and explains every decision below.
+Read [DESIGN.md](DESIGN.md) first; it is the design this was built from and
+explains every decision below.
 
 ## Invariants — do not break these
 
