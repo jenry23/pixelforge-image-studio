@@ -88,6 +88,17 @@ It prompts for a name, an email and a password typed twice and never echoed, so
 no credential ends up in a seeder, a deploy script, or shell history. Minimum
 twelve characters. Sign in at `https://<your-domain>/login` to confirm.
 
+**On a host with no TTY** -- Laravel Cloud's command runner included -- there is
+nothing to prompt, so the password comes from the environment instead of from an
+argument, which would otherwise land in the deploy log:
+
+1. add `ADMIN_INITIAL_PASSWORD` to the environment and redeploy
+2. `php artisan pixelforge:create-admin --name="Your Name" --email="you@example.com"`
+3. delete `ADMIN_INITIAL_PASSWORD` and redeploy
+
+Step 3 is not optional. Leaving it set keeps a working password in the
+environment of a running app.
+
 Further admins come from the same command. There is no way to grant the admin
 flag through the web app, by design.
 

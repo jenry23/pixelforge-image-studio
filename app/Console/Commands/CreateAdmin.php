@@ -15,6 +15,13 @@ class CreateAdmin extends Command
         {--email= : Skip the prompt for the email address}
         {--name= : Skip the prompt for the display name}';
 
+    /**
+     * Read non-interactively from the environment rather than from an option,
+     * so the password never appears in a command line, a deploy log or shell
+     * history. Hosted runners (Laravel Cloud among them) have no TTY.
+     */
+    private const PASSWORD_ENV = 'ADMIN_INITIAL_PASSWORD';
+
     protected $description = 'Create an admin account, prompting for the password rather than seeding a known one';
 
     public function handle(): int
@@ -29,15 +36,31 @@ class CreateAdmin extends Command
             return self::FAILURE;
         }
 
-        // Typed twice and never echoed, so it is never in shell history,
-        // scrollback, or a seeder.
-        $password = $this->secret('Password');
-        $confirmation = $this->secret('Confirm password');
+        if ($this->input->isInteractive()) {
+            // Typed twice and never echoed, so it is never in shell history,
+            // scrollback, or a seeder.
+            $password = $this->secret('Password');
 
-        if ($password !== $confirmation) {
-            $this->error('The passwords did not match.');
+            if ($password !== $this->secret('Confirm password')) {
+                $this->error('The passwords did not match.');
 
-            return self::FAILURE;
+                return self::FAILURE;
+            }
+        } else {
+            $password = (string) env(self::PASSWORD_ENV, '');
+
+            if ($password === '') {
+                $this->error('No TTY, so the password must come from the environment.');
+                $this->newLine();
+                $this->line('Set '.self::PASSWORD_ENV.' in the host environment, run this command,');
+                $this->line('then remove the variable again. For example on Laravel Cloud:');
+                $this->newLine();
+                $this->line('  1. add '.self::PASSWORD_ENV.' to the environment and redeploy');
+                $this->line('  2. php artisan pixelforge:create-admin --name="…" --email="…"');
+                $this->line('  3. delete '.self::PASSWORD_ENV.' and redeploy');
+
+                return self::FAILURE;
+            }
         }
 
         $validator = Validator::make(
@@ -69,6 +92,11 @@ class CreateAdmin extends Command
         $user->save();
 
         $this->info("Admin created: {$user->email}");
+
+        if (! $this->input->isInteractive()) {
+            $this->warn('Remove '.self::PASSWORD_ENV.' from the environment now that the account exists.');
+        }
+
         $this->line('No starting credit was granted. Admins see the billing report;');
         $this->line('they do not need credit unless they also generate images.');
 

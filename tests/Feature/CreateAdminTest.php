@@ -62,3 +62,33 @@ it('refuses to seed demo accounts outside local and testing', function () {
     // The known-password admin was never created.
     expect(User::query()->where('email', 'admin@example.com')->exists())->toBeFalse();
 });
+
+it('takes the password from the environment when there is no tty', function () {
+    putenv('ADMIN_INITIAL_PASSWORD=a-long-enough-secret');
+
+    $this->artisan('pixelforge:create-admin', [
+        '--name' => 'Ops Lead',
+        '--email' => 'ops-ci@imagestudio.test',
+        '--no-interaction' => true,
+    ])->assertSuccessful();
+
+    $admin = User::query()->where('email', 'ops-ci@imagestudio.test')->sole();
+
+    expect($admin->is_admin)->toBeTrue()
+        ->and(Hash::check('a-long-enough-secret', $admin->password))->toBeTrue();
+
+    putenv('ADMIN_INITIAL_PASSWORD');
+});
+
+it('explains itself when there is no tty and no password in the environment', function () {
+    putenv('ADMIN_INITIAL_PASSWORD');
+
+    $this->artisan('pixelforge:create-admin', [
+        '--name' => 'Ops Lead',
+        '--email' => 'ops-none@imagestudio.test',
+        '--no-interaction' => true,
+    ])->expectsOutputToContain('ADMIN_INITIAL_PASSWORD')
+        ->assertFailed();
+
+    expect(User::query()->where('email', 'ops-none@imagestudio.test')->exists())->toBeFalse();
+});
