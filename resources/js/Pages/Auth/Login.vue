@@ -170,7 +170,7 @@ const submit = () => {
                 <!-- Caption lives in HTML, not baked into the asset, so it stays
                      selectable, translatable and legible to screen readers. -->
                 <figcaption
-                    class="absolute bottom-6 left-6 text-[1.0625rem] font-semibold text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.55)]"
+                    class="absolute bottom-[2.2rem] left-[1.7rem] text-[1.18rem] font-semibold text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.55)]"
                 >
                     Studio sample
                 </figcaption>
