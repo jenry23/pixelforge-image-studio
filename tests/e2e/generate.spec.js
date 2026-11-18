@@ -147,3 +147,73 @@ test.describe('the admin report', () => {
         await expect(page.getByRole('columnheader', { name: 'Delta' })).toBeVisible()
     })
 })
+
+test.describe('the estimate range', () => {
+    test.beforeEach(async ({ page }) => {
+        await signIn(page, 'user@example.com')
+        await page.goto('/generate')
+    })
+
+    test('is a read-only reading, not a control', async ({ page }) => {
+        const marker = page.getByTestId('estimate-marker')
+        await expect(marker).toBeVisible()
+
+        expect(
+            await marker.evaluate((el) => ({
+                tag: el.tagName,
+                focusable: el.tabIndex >= 0 || el.parentElement.tabIndex >= 0,
+                barHidden: el.parentElement.getAttribute('aria-hidden'),
+            })),
+        ).toEqual({ tag: 'SPAN', focusable: false, barHidden: 'true' })
+    })
+
+    test('names which figure is expected, lowest and highest', async ({ page }) => {
+        // The bar itself is hidden from assistive tech, so every figure it plots
+        // has to be announced as labelled text.
+        await expect(page.getByText('Expected charge', { exact: true }).first()).toBeAttached()
+        await expect(page.getByText('Lowest estimate', { exact: true })).toBeAttached()
+        await expect(page.getByText('Highest estimate', { exact: true })).toBeAttached()
+    })
+
+    test('moves the marker and the amounts together as the inputs change', async ({ page }) => {
+        const read = async () => {
+            await page.waitForTimeout(1300)
+            return page.evaluate(() => {
+                const text = (id) => document.querySelector(`[data-testid="${id}"]`).textContent.trim()
+                const marker = document.querySelector('[data-testid="estimate-marker"]')
+                const track = marker.parentElement.getBoundingClientRect()
+                const box = marker.getBoundingClientRect()
+                return {
+                    expected: text('estimate-expected'),
+                    min: text('estimate-min'),
+                    max: text('estimate-max'),
+                    percent: ((box.left + box.width / 2 - track.left) / track.width) * 100,
+                }
+            })
+        }
+
+        await page.locator('textarea').first().fill('a copper orrery')
+        const medium = await read()
+
+        await page.locator('label:has-text("High")').first().click()
+        const high = await read()
+
+        // Quality moved every figure, and the marker stayed inside the track.
+        expect(high.expected).not.toBe(medium.expected)
+        expect(high.min).not.toBe(medium.min)
+        expect(high.max).not.toBe(medium.max)
+        expect(high.percent).toBeGreaterThan(0)
+        expect(high.percent).toBeLessThan(100)
+
+        await page.locator('label:has-text("Landscape")').first().click()
+        const landscape = await read()
+        expect(landscape.expected).not.toBe(high.expected)
+
+        // And the marker always plots the expected value between the two bounds.
+        for (const state of [medium, high, landscape]) {
+            const usd = (v) => Number(v.replace('$', ''))
+            expect(usd(state.expected)).toBeGreaterThanOrEqual(usd(state.min))
+            expect(usd(state.expected)).toBeLessThanOrEqual(usd(state.max))
+        }
+    })
+})

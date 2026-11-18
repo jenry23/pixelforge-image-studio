@@ -223,28 +223,37 @@ function submit(): void {
             </div>
 
             <div class="mt-4 flex flex-wrap items-baseline gap-x-3">
-                <span class="figure text-[2.1rem] text-white">
+                <span class="sr-only">Expected charge</span>
+                <span data-testid="estimate-expected" class="figure text-[2.1rem] text-white">
                     ${{ estimate.charge.expected.usd.slice(0, 8) }}
                 </span>
-                <span class="text-sm text-[#9aa5b4]">Expected charge</span>
+                <span class="text-sm text-[#9aa5b4]" aria-hidden="true">Expected charge</span>
             </div>
 
             <div class="mt-5">
-                <div class="relative h-px bg-outline/60">
-                    <span class="absolute -top-1 left-0 h-2 w-px bg-outline" aria-hidden="true" />
-                    <span class="absolute -top-1 right-0 h-2 w-px bg-outline" aria-hidden="true" />
+                <!--
+                    A reading on a scale, not a control: nothing here is settable,
+                    so the marker is a tick rather than anything that invites a drag.
+                    Hidden from assistive tech because the three figures it plots
+                    are all announced as labelled text below and above.
+                -->
+                <div class="relative h-px bg-outline/60" aria-hidden="true">
+                    <span class="absolute -top-1 left-0 h-2 w-px bg-outline" />
+                    <span class="absolute -top-1 right-0 h-2 w-px bg-outline" />
                     <span
-                        class="absolute -top-[3px] size-2 rounded-full bg-[#8a9ffd] ring-2 ring-surface"
-                        :style="{ left: `calc(${markerPosition}% - 4px)` }"
-                        aria-hidden="true"
+                        data-testid="estimate-marker"
+                        class="absolute -top-[5.5px] h-3 w-0.5 bg-[#8a9ffd]"
+                        :style="{ left: `calc(${markerPosition}% - 1px)` }"
                     />
                 </div>
                 <div class="mt-2.5 flex justify-between">
                     <span class="figure text-xs text-[#9aa5b4]">
-                        ${{ estimate.charge.min.usd.slice(0, 8) }}
+                        <span class="sr-only">Lowest estimate </span>
+                        <span data-testid="estimate-min">${{ estimate.charge.min.usd.slice(0, 8) }}</span>
                     </span>
                     <span class="figure text-xs text-[#9aa5b4]">
-                        ${{ estimate.charge.max.usd.slice(0, 8) }}
+                        <span class="sr-only">Highest estimate </span>
+                        <span data-testid="estimate-max">${{ estimate.charge.max.usd.slice(0, 8) }}</span>
                     </span>
                 </div>
             </div>
