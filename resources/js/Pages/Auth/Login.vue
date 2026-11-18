@@ -39,7 +39,7 @@ const submit = () => {
 
     <div class="min-h-screen bg-[#0e1522] lg:grid lg:h-screen lg:min-h-0 lg:grid-cols-[48fr_52fr] lg:overflow-hidden">
         <!-- Form side -->
-        <div class="relative flex min-h-screen justify-center px-6 py-16 sm:px-10 sm:py-20 [@media(max-height:800px)]:py-10 lg:h-screen lg:min-h-0 lg:overflow-y-auto lg:pl-[3.25rem]">
+        <div class="relative flex min-h-screen justify-center px-6 py-16 sm:px-10 sm:py-20 [@media(max-height:800px)]:py-10 lg:h-screen lg:min-h-0 lg:overflow-y-auto lg:pl-[3.875rem]">
             <Link
                 href="/"
                 class="absolute left-6 top-8 inline-flex items-center gap-2.5 rounded text-[1.35rem] font-semibold tracking-tight text-white sm:left-10 lg:left-[3.2rem] lg:top-[2.4rem]"
@@ -52,7 +52,7 @@ const submit = () => {
                     <h1 class="text-[2.1rem] font-bold leading-[1.12] tracking-tight text-white sm:text-[2.8rem] [@media(max-height:800px)]:sm:text-[2.1rem]">
                         Sign in to Image Studio
                     </h1>
-                    <p class="mt-[0.9rem] text-[1.1rem] leading-relaxed text-[#9aa5b4] sm:text-[1.28rem] [@media(max-height:800px)]:mt-[0.5rem] [@media(max-height:800px)]:sm:text-[1.1rem]">
+                    <p class="mt-[0.9rem] text-[1.1rem] leading-relaxed text-[#ecf3fd] sm:text-[1.28rem] [@media(max-height:800px)]:mt-[0.5rem] [@media(max-height:800px)]:sm:text-[1.1rem]">
                         Generate images and track what each one costs.
                     </p>
 
@@ -76,7 +76,7 @@ const submit = () => {
                                 autofocus
                                 autocomplete="username"
                                 placeholder="you@example.com"
-                                class="mt-[0.7rem] [@media(max-height:800px)]:mt-[0.45rem] block h-[3.4rem] w-full sm:h-[3.75rem] [@media(max-height:800px)]:sm:h-[3.1rem] rounded-xl border border-[#2b3443] bg-[#101723] px-4 text-[1.0625rem] text-white placeholder:text-[#7c8696] sm:text-[1.2rem] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd]"
+                                class="mt-[0.7rem] [@media(max-height:800px)]:mt-[0.45rem] block h-[3.4rem] w-full sm:h-[3.75rem] [@media(max-height:800px)]:sm:h-[3.1rem] rounded-xl border border-[#262d39] bg-[#101723] px-4 text-[1.0625rem] text-white placeholder:text-[#a5acb7] sm:text-[1.2rem] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd]"
                             />
                             <InputError class="mt-2" :message="form.errors.email" />
                         </div>
@@ -93,13 +93,13 @@ const submit = () => {
                                     required
                                     autocomplete="current-password"
                                     placeholder="Enter your password"
-                                    class="block h-[3.4rem] w-full rounded-xl border border-[#2b3443] bg-[#101723] pl-4 pr-14 sm:h-[3.75rem] [@media(max-height:800px)]:sm:h-[3.1rem] text-[1.0625rem] text-white placeholder:text-[#7c8696] sm:text-[1.2rem] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd]"
+                                    class="block h-[3.4rem] w-full rounded-xl border border-[#262d39] bg-[#101723] pl-4 pr-14 sm:h-[3.75rem] [@media(max-height:800px)]:sm:h-[3.1rem] text-[1.0625rem] text-white placeholder:text-[#a5acb7] sm:text-[1.2rem] focus:border-[#8a9ffd] focus:outline-none focus:ring-1 focus:ring-[#8a9ffd]"
                                 />
                                 <button
                                     type="button"
                                     :aria-label="showPassword ? 'Hide password' : 'Show password'"
                                     :aria-pressed="showPassword"
-                                    class="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-[#9aa5b4] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8a9ffd]"
+                                    class="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-[#eef1f6] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8a9ffd]"
                                     @click="showPassword = !showPassword"
                                 >
                                     <component :is="showPassword ? EyeSlash : Eye" class="size-5" />
@@ -122,7 +122,7 @@ const submit = () => {
                             <Link
                                 v-if="canResetPassword"
                                 :href="route('password.request')"
-                                class="text-[1rem] text-[#aec0f5] underline underline-offset-4 hover:text-white sm:text-[1.1rem]"
+                                class="text-[1rem] text-[#bacffa] underline underline-offset-4 hover:text-white sm:text-[1.1rem]"
                             >
                                 Forgot password?
                             </Link>
@@ -155,8 +155,8 @@ const submit = () => {
                 <img
                     src="/images/login-hero.webp"
                     alt=""
-                    width="772"
-                    height="889"
+                    width="803"
+                    height="950"
                     class="size-full object-cover"
                 />
                 <!-- Caption lives in HTML, not baked into the asset, so it stays
