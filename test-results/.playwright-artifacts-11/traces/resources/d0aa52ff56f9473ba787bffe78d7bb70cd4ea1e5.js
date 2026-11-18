@@ -1,1 +1,0 @@
-import{D as e,_ as t,k as n}from"./app-CBFKTDzL.js";import{t as r}from"./_plugin-vue_export-helper-BDNMzG2s.js";var i={},a={class:`inline-flex items-center rounded-md bg-measured px-4 py-2 text-sm font-medium text-ink transition-opacity hover:opacity-90 disabled:opacity-40`};function o(r,i){return e(),t(`button`,a,[n(r.$slots,`default`)])}var s=r(i,[[`render`,o]]);export{s as t};

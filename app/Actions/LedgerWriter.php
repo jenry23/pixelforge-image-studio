@@ -13,36 +13,8 @@ use Illuminate\Support\Facades\DB;
 use LogicException;
 use RuntimeException;
 
-/**
- * The only writer of the credit ledger.
- *
- * Two rules make the money safe, and every method here depends on both:
- *
- *  1. Every mutation holds a `FOR UPDATE` lock on the user row first. That
- *     serialises all balance arithmetic for a user, so "check then insert" is
- *     atomic and two concurrent settlements cannot both see the same balance.
- *  2. `UNIQUE (generation_id, type)` means one hold, one release and one charge
- *     per generation at the database level. With rule 1 in place this should
- *     never fire; if it ever does, that is a logic bug and throwing is the
- *     correct outcome -- far better than silently double-charging.
- *
- * Ledger rows are append-only. The `users.balance_nanodollars` and
- * `held_nanodollars` columns are a cache updated in the same transaction, and
- * `pixelforge:verify-ledger` proves they still agree with the fold.
- */
 final class LedgerWriter
 {
-    /**
-     * Lock a user for a sequence of ledger writes and hand it to the callback.
-     *
-     * Always acquire this before touching a generation row, so every money path
-     * takes locks in the same order and cannot deadlock against another.
-     *
-     * @template TReturn
-     *
-     * @param  callable(User): TReturn  $callback
-     * @return TReturn
-     */
     public function forUser(int $userId, callable $callback): mixed
     {
         return DB::transaction(function () use ($userId, $callback) {
@@ -52,12 +24,6 @@ final class LedgerWriter
         });
     }
 
-    /**
-     * Reserve credits against a generation whose final cost is not yet known.
-     *
-     * Returns null when the user cannot afford the reservation, so the caller
-     * can refuse the submission before anything is sent to the provider.
-     */
     public function hold(User $user, Generation $generation, Money $amount): ?CreditTransaction
     {
         $this->assertLocked();
@@ -81,10 +47,6 @@ final class LedgerWriter
         return $transaction;
     }
 
-    /**
-     * Release a reservation without charging: the generation failed, was
-     * rejected, or was abandoned. Idempotent -- returns null if already released.
-     */
     public function release(User $user, Generation $generation, string $reason): ?CreditTransaction
     {
         $this->assertLocked();
@@ -94,7 +56,6 @@ final class LedgerWriter
         }
 
         if ($this->has($generation, TransactionType::Release) || $this->has($generation, TransactionType::Charge)) {
-            // Already settled one way or the other.
             return null;
         }
 
@@ -109,13 +70,6 @@ final class LedgerWriter
         return $transaction;
     }
 
-    /**
-     * Convert a reservation into an actual charge at the settled cost.
-     *
-     * The hold is released and the balance debited in the same row, so a user's
-     * available credit never flickers between the two. Idempotent -- returns null
-     * if this generation has already been charged.
-     */
     public function charge(User $user, Generation $generation, Money $amount): ?CreditTransaction
     {
         $this->assertLocked();
@@ -130,8 +84,7 @@ final class LedgerWriter
 
         $transaction = $this->write($user, $generation, TransactionType::Charge,
             balanceDelta: Money::fromNanodollars(-$amount->nanodollars),
-            // Settling consumes whatever was reserved, which may differ from the
-            // final charge -- the hold was the maximum, this is the truth.
+
             holdDelta: Money::fromNanodollars(-$generation->hold_nanodollars),
             description: 'Generation charged at settled cost',
         );
@@ -141,7 +94,6 @@ final class LedgerWriter
         return $transaction;
     }
 
-    /** Add credits. A fake purchase in this app, but a real ledger entry. */
     public function topup(User $user, Money $amount, string $description = 'Credits purchased'): CreditTransaction
     {
         $this->assertLocked();
@@ -156,8 +108,6 @@ final class LedgerWriter
             description: $description,
         );
     }
-
-    // -- internals -----------------------------------------------------------
 
     private function write(
         User $user,
@@ -176,9 +126,6 @@ final class LedgerWriter
             'description' => $description,
         ]);
 
-        // Update the materialised cache in the same transaction as the ledger
-        // row, as a relative change rather than a computed total, so it stays
-        // correct under the row lock without re-reading.
         User::query()->whereKey($user->getKey())->update([
             'balance_nanodollars' => DB::raw('balance_nanodollars + '.$balanceDelta->nanodollars),
             'held_nanodollars' => DB::raw('held_nanodollars + '.$holdDelta->nanodollars),
@@ -198,10 +145,6 @@ final class LedgerWriter
             ->exists();
     }
 
-    /**
-     * Guard against being called outside the user lock, which would silently
-     * remove the serialisation the whole design depends on.
-     */
     private function assertLocked(): void
     {
         if (DB::transactionLevel() === 0) {

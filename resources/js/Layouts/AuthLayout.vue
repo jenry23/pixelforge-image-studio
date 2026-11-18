@@ -3,23 +3,6 @@ import { Link } from '@inertiajs/vue3'
 import StarFour from '@/Components/Icons/StarFour.vue'
 import { useMediaQuery } from '@/Composables/useMediaQuery'
 
-/**
- * The shell shared by sign-in and sign-up: wordmark, the centred form column,
- * and the studio artwork.
- *
- * Used as an Inertia *persistent* layout, so moving between the two pages swaps
- * only the form content. The layout instance — and with it the `<img>` — is
- * never unmounted, so the artwork does not blink or refetch on navigation.
- *
- * Two constraints are load-bearing here and easy to undo by accident:
- *
- *  - On desktop the grid is exactly one viewport tall and the form column
- *    scrolls inside itself, so the artwork can never run past the fold on a
- *    short window.
- *  - The artwork panel holds the asset's own 803:950 ratio rather than
- *    stretching to fill its column, so `cover` has nothing to crop and the
- *    framing stays as designed at every window shape.
- */
 const showArtwork = useMediaQuery('(min-width: 1024px)')
 </script>
 
@@ -36,9 +19,6 @@ const showArtwork = useMediaQuery('(min-width: 1024px)')
                 Image Studio
             </Link>
 
-            <!-- `m-auto` rather than centring on the parent: once the content is
-                 taller than the column, centred flex content is clipped at the
-                 top and the first field becomes unreachable. -->
             <div class="m-auto w-full max-w-[30.9rem]">
                 <slot />
             </div>

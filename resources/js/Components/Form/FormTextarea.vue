@@ -3,6 +3,8 @@ import { computed, useId } from 'vue'
 
 interface Props {
     label: string
+    name: string
+    id?: string
     hint?: string
     error?: string
     placeholder?: string
@@ -14,6 +16,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+    id: undefined,
     hint: undefined,
     error: undefined,
     placeholder: undefined,
@@ -27,7 +30,7 @@ const props = withDefaults(defineProps<Props>(), {
 const model = defineModel<string>({ required: true })
 
 const uid = useId()
-const fieldId = `${uid}-textarea`
+const fieldId = computed(() => props.id ?? props.name ?? `${uid}-textarea`)
 const hintId = `${uid}-hint`
 const errorId = `${uid}-error`
 const countId = `${uid}-count`
@@ -53,6 +56,7 @@ const count = computed(() => [...model.value].length)
 
         <textarea
             :id="fieldId"
+            :name="name"
             v-model="model"
             :rows="rows"
             :placeholder="placeholder"

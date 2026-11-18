@@ -4,13 +4,6 @@ import Form from '@/Components/Form/Form.vue'
 import FormInput from '@/Components/Form/FormInput.vue'
 import AuthLayout from '@/Layouts/AuthLayout.vue'
 
-/**
- * The exact payload POSTed to the register route.
- *
- * `password_confirmation` is snake_case because Laravel's `confirmed` rule
- * looks for precisely that key; renaming it would silently stop the two fields
- * being compared.
- */
 interface RegisterForm {
     name: string
     email: string
@@ -55,6 +48,7 @@ function submit(): void {
     >
         <FormInput
             v-model="form.name"
+            name="name"
             label="Name"
             placeholder="Your name"
             autocomplete="name"
@@ -64,6 +58,7 @@ function submit(): void {
 
         <FormInput
             v-model="form.email"
+            name="email"
             label="Email"
             type="email"
             placeholder="you@example.com"
@@ -74,6 +69,7 @@ function submit(): void {
 
         <FormInput
             v-model="form.password"
+            name="password"
             label="Password"
             type="password"
             placeholder="Create a password"
@@ -84,6 +80,7 @@ function submit(): void {
 
         <FormInput
             v-model="form.password_confirmation"
+            name="password_confirmation"
             label="Confirm password"
             type="password"
             placeholder="Re-enter your password"

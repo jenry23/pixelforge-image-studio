@@ -9,12 +9,12 @@ test.describe('the generate page', () => {
     test('shows what a generation will cost before it is submitted', async ({ page }) => {
         const readout = page.getByRole('complementary')
 
-        await expect(readout.getByText('What this will cost')).toBeVisible()
-        await expect(readout.getByText('expected')).toBeVisible()
+        await expect(readout.getByText('Estimated cost')).toBeVisible()
+        await expect(readout.getByText('Expected charge')).toBeVisible()
 
         // A range, not a single number: reasoning tokens are only counted at
         // completion, so a single figure would be a guess presented as a fact.
-        await expect(readout.getByText(/The final charge lands somewhere in this range/)).toBeVisible()
+        await expect(readout.getByText(/We reserve the upper estimate and settle the actual cost/)).toBeVisible()
     })
 
     test('reprices when the quality changes', async ({ page }) => {
@@ -42,7 +42,7 @@ test.describe('the generate page', () => {
 
         const repriced = page.waitForResponse((r) => r.url().includes('/generate/estimate') && r.ok())
         await page
-            .getByLabel('What should Pixelforge draw?')
+            .getByLabel('Prompt')
             .fill('a '.repeat(500).trim())
         await repriced
 
@@ -52,19 +52,19 @@ test.describe('the generate page', () => {
     test('separates the exact parts of the cost from the uncertain ones', async ({ page }) => {
         const readout = page.getByRole('complementary')
 
-        // Output and reference-image tokens are fixed by the request itself.
-        await expect(readout.getByRole('row').filter({ hasText: 'Output' })).toContainText('exact')
-        // Reasoning is only counted once the generation has run.
-        await expect(readout.getByRole('row').filter({ hasText: 'Reasoning' })).toContainText('varies')
+        // Output tokens are fixed by the request, so they show a single figure.
+        await expect(readout.getByRole('row').filter({ hasText: 'Output' })).toContainText('1,100')
+        // Reasoning is only counted at completion, so it shows a range.
+        await expect(readout.getByRole('row').filter({ hasText: 'Reasoning' })).toContainText('–')
     })
 
     test('states the markup openly', async ({ page }) => {
-        await expect(page.getByText('Our margin')).toBeVisible()
+        await expect(page.getByText('Markup')).toBeVisible()
         await expect(page.getByText('25%')).toBeVisible()
     })
 
     test('promises that failures are free', async ({ page }) => {
-        await expect(page.getByText('If a generation fails, it costs you nothing.')).toBeVisible()
+        await expect(page.getByText('Failed generations are free.')).toBeVisible()
     })
 
     test('will not submit an empty prompt', async ({ page }) => {
@@ -94,7 +94,7 @@ test.describe('credits', () => {
         // The spent-out account has no credit left.
         await signIn(page, 'broke@example.com')
 
-        await page.getByLabel('What should Pixelforge draw?').fill('an expensive picture')
+        await page.getByLabel('Prompt').fill('an expensive picture')
         await chooseOption(page, 'Quality', 'High')
         await page.waitForResponse((r) => r.url().includes('/generate/estimate') && r.ok())
 
@@ -110,11 +110,11 @@ test.describe('credits', () => {
         const email = `buyer-${Date.now()}@example.com`
 
         await page.goto('/register')
-        await page.getByLabel('Name').fill('Credit Buyer')
-        await page.getByLabel('Email').fill(email)
-        await page.getByLabel('Password', { exact: true }).fill('password')
-        await page.getByLabel('Confirm Password').fill('password')
-        await page.getByRole('button', { name: 'Register' }).click()
+        await page.locator('#name').fill('Credit Buyer')
+        await page.locator('#email').fill(email)
+        await page.locator('#password').fill('password')
+        await page.locator('#password_confirmation').fill('password')
+        await page.getByRole('button', { name: 'Create account' }).click()
         await expect(page).toHaveURL(/\/generate/)
 
         // A new account starts with the welcome credit.

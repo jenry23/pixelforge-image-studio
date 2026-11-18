@@ -20,15 +20,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/**
- * @property-read Money $estimatedChargeMax
- * @property-read Money|null $providerCost
- * @property-read Money|null $charged
- */
 #[UseFactory(GenerationFactory::class)]
 class Generation extends Model
 {
-    /** @use HasFactory<GenerationFactory> */
     use HasFactory, HasUlids;
 
     protected $guarded = [];
@@ -54,16 +48,6 @@ class Generation extends Model
         ];
     }
 
-    /*
-     * `billed_on_utc` is deliberately NOT cast to a date.
-     *
-     * It is a plain 'Y-m-d' string, which is exactly the key GET /v1/usage uses
-     * for its daily rows. Keeping it as that string makes the report's GROUP BY
-     * and its match against the provider's rows a direct comparison, and avoids
-     * the subtle trap that a date cast writes '2026-11-17 00:00:00' into the
-     * column -- which then never matches a bare 'Y-m-d' range on SQLite.
-     */
-
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -79,9 +63,6 @@ class Generation extends Model
         return $this->hasMany(WebhookEvent::class);
     }
 
-    // -- Money accessors -----------------------------------------------------
-
-    /** The rate snapshot this generation must always be costed from. */
     public function rates(): Rates
     {
         return Rates::fromArray($this->rates_snapshot);
@@ -121,16 +102,6 @@ class Generation extends Model
         return Money::fromNanodollars($this->hold_nanodollars);
     }
 
-    /**
-     * The exact body to send to POST /v1/generations for this generation.
-     *
-     * Always derived from the stored row, never from request input, so every
-     * attempt and every idempotent replay sends identical parameters. Sending
-     * the same key with different parameters is a 409, so this single source is
-     * what makes retries safe.
-     *
-     * @return array<string, mixed>
-     */
     public function providerPayload(): array
     {
         return [
@@ -138,13 +109,10 @@ class Generation extends Model
             'size' => $this->size->value,
             'quality' => $this->quality->value,
             'reference_images' => array_values($this->reference_images ?? []),
-            // Returned on the generation and in every webhook, which is how a
-            // webhook that overtakes the create response still finds this row.
+
             'metadata' => ['generation_id' => (string) $this->getKey()],
         ];
     }
-
-    // -- State ---------------------------------------------------------------
 
     public function isSettled(): bool
     {
@@ -157,28 +125,12 @@ class Generation extends Model
             && $this->image_url_expires_at->isPast();
     }
 
-    /**
-     * Whether an incoming status may be applied, given what we already know.
-     *
-     * Monotonic by rank, with the event timestamp breaking ties at the same
-     * rank. This is what makes a retried `generation.processing` arriving after
-     * `generation.succeeded` a no-op instead of a regression.
-     */
     public function canTransitionTo(GenerationStatus $incoming, ?\DateTimeInterface $eventAt): bool
     {
-        // A provider-final state is absolute: "never move a generation back from
-        // succeeded or failed". No timestamp can reopen it, so a redelivered
-        // success with a fresher timestamp is still a no-op -- and a success can
-        // never overwrite a failure, or vice versa.
         if ($this->status === GenerationStatus::Succeeded || $this->status === GenerationStatus::Failed) {
             return false;
         }
 
-        // `Rejected` is different: it is *our* conclusion that nothing exists
-        // provider-side, not something the provider told us. If the provider
-        // later reports a real outcome, that is the truth and it wins -- which
-        // also closes the hole where a very late webhook would otherwise leave us
-        // under-billed against GET /v1/usage.
         if ($this->status === GenerationStatus::Rejected) {
             return $incoming === GenerationStatus::Succeeded
                 || $incoming === GenerationStatus::Failed;
@@ -188,16 +140,11 @@ class Generation extends Model
             return $incoming->rank() > $this->status->rank();
         }
 
-        // Same non-final rank: only a strictly newer event wins, so a duplicate
-        // delivery of the same event changes nothing.
         return $eventAt !== null
             && $this->status_event_at !== null
             && $eventAt > $this->status_event_at;
     }
 
-    // -- Scopes --------------------------------------------------------------
-
-    /** Generations the provider counts against its 3-in-flight cap. */
     #[Scope]
     protected function inFlightAtProvider(Builder $query): void
     {
@@ -225,13 +172,6 @@ class Generation extends Model
         ]);
     }
 
-    /**
-     * Succeeded and therefore billed, bucketed by the provider's own UTC day.
-     *
-     * Matches "a generation is billed on the UTC day it completed, not the day it
-     * was created" -- getting this wrong is the likeliest cause of a report that
-     * almost, but not quite, ties out to GET /v1/usage.
-     */
     #[Scope]
     protected function billedBetweenUtc(Builder $query, string $startDate, string $endDate): void
     {

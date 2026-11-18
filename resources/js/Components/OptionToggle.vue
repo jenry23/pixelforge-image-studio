@@ -1,11 +1,4 @@
 <script setup>
-/**
- * A small set of mutually exclusive choices, shown all at once.
- *
- * A segmented control rather than a select, because size and quality both move
- * the price and the user should be able to see every option and its effect
- * without opening anything.
- */
 defineProps({
     options: { type: Array, required: true },
     modelValue: { type: String, required: true },

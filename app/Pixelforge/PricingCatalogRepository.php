@@ -9,17 +9,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * Supplies the published pricing rules, cached, with a committed fallback.
- *
- * The provider tells us to read rates from the pricing endpoint rather than
- * hardcoding them, but the estimate UI must not break if that endpoint is
- * briefly unreachable -- so a last-known-good snapshot ships with the repo.
- *
- * The fallback is only ever used for *estimates*. Settlement always costs from
- * the rate snapshot the provider returned on the generation itself, so a stale
- * fallback can make a quote slightly wrong but can never make a charge wrong.
- */
 final class PricingCatalogRepository
 {
     private const string CACHE_KEY = 'pixelforge:pricing';
@@ -33,21 +22,15 @@ final class PricingCatalogRepository
 
     public function get(): PricingCatalog
     {
-        // Memoised per request as well as cached, so one page render that quotes
-        // several variants does not hit the cache driver repeatedly.
         return $this->resolved ??= PricingCatalog::fromArray($this->payload());
     }
 
-    /** Drop the cache, e.g. after a known price change. */
     public function forget(): void
     {
         Cache::forget(self::CACHE_KEY);
         $this->resolved = null;
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     private function payload(): array
     {
         $cached = Cache::get(self::CACHE_KEY);
@@ -71,9 +54,6 @@ final class PricingCatalogRepository
         }
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     private function fallback(): array
     {
         $path = resource_path('pixelforge/pricing-fallback.json');

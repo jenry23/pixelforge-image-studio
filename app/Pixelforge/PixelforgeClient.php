@@ -14,14 +14,6 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
-/**
- * The only place that talks to Pixelforge.
- *
- * Its job is to turn HTTP outcomes into the three failure meanings the rest of
- * the app cares about -- throttled (wait and retry), rejected (never going to
- * work), ambiguous (we genuinely do not know whether a billable generation was
- * created) -- so no caller ever branches on a status code.
- */
 final readonly class PixelforgeClient
 {
     public function __construct(
@@ -41,16 +33,6 @@ final readonly class PixelforgeClient
         );
     }
 
-    /**
-     * Create a generation.
-     *
-     * The idempotency key is required rather than optional: every create in this
-     * app is retryable, and a retry without the key could produce a second
-     * billable generation. Making it a required argument means that mistake
-     * cannot be made by omission.
-     *
-     * @param  array<string, mixed>  $payload
-     */
     public function createGeneration(array $payload, string $idempotencyKey): CreateGenerationResult
     {
         $response = $this->send(
@@ -61,15 +43,11 @@ final readonly class PixelforgeClient
 
         return new CreateGenerationResult(
             generation: ProviderGeneration::fromArray($this->decode($response)),
-            // Proof a retry adopted the original generation instead of creating one.
+
             wasReplayed: $response->header('Idempotent-Replayed') === 'true',
         );
     }
 
-    /**
-     * Fetch a generation's current state. Returns null if the provider has no
-     * such generation, which for us means "nothing was ever created".
-     */
     public function retrieveGeneration(string $providerId): ?ProviderGeneration
     {
         try {
@@ -87,7 +65,6 @@ final readonly class PixelforgeClient
         return ProviderGeneration::fromArray($this->decode($response));
     }
 
-    /** Published rates and token tables. Needs no authentication. */
     public function pricing(): PricingCatalog
     {
         $response = $this->send(
@@ -98,12 +75,6 @@ final readonly class PixelforgeClient
         return PricingCatalog::fromArray($this->decode($response));
     }
 
-    /**
-     * The provider's billing record for this API key, per UTC day.
-     *
-     * Dates are inclusive and must be UTC Y-m-d, matching how the provider
-     * attributes a generation to the day it completed.
-     */
     public function usage(string $startDate, string $endDate): UsageReport
     {
         $response = $this->send(
@@ -116,8 +87,6 @@ final readonly class PixelforgeClient
         return UsageReport::fromArray($this->decode($response));
     }
 
-    // -- Plumbing ------------------------------------------------------------
-
     private function request(bool $authenticated = true): PendingRequest
     {
         $request = Http::baseUrl($this->baseUrl)
@@ -125,9 +94,7 @@ final readonly class PixelforgeClient
             ->asJson()
             ->timeout($this->timeout)
             ->connectTimeout($this->connectTimeout)
-            // Retries are owned by the queued job, which can persist its budget
-            // and honour Retry-After. Retrying inside the client would hide
-            // attempts from that budget and from the per-minute rate limit.
+
             ->withUserAgent('PixelforgeImageStudio/1.0 (+laravel)');
 
         return $authenticated && $this->apiKey !== null
@@ -135,17 +102,11 @@ final readonly class PixelforgeClient
             : $request;
     }
 
-    /**
-     * @param  callable(PendingRequest): Response  $send
-     *
-     * @throws PixelforgeException
-     */
     private function send(callable $send, bool $authenticated = true): Response
     {
         try {
             $response = $send($this->request($authenticated));
         } catch (ConnectionException $e) {
-            // Timeout or connection failure: the request may have been processed.
             throw new AmbiguousOutcomeException(
                 'Could not reach Pixelforge: '.$e->getMessage()
             );
@@ -176,30 +137,23 @@ final readonly class PixelforgeClient
         $retryAfter = is_numeric($retryAfter) ? (int) $retryAfter : null;
 
         return match (true) {
-            // Nothing created, nothing billed; wait the stated interval.
             $status === 429, $status === 503 => new ThrottledException(
                 $message, $code, $type, $status, $retryAfter
             ),
 
-            // Definitive refusals: retrying cannot change the answer.
             in_array($status, [400, 401, 403, 404, 409, 422], strict: true) => new RejectedException(
                 $message, $code, $type, $status
             ),
 
-            // Any other 5xx: the provider may have acted before failing.
             default => new AmbiguousOutcomeException($message, $code, $type, $status),
         };
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     private function decode(Response $response): array
     {
         $decoded = $response->json();
 
         if (! is_array($decoded)) {
-            // A 2xx we cannot read is not a success we can act on.
             throw new AmbiguousOutcomeException(
                 'Pixelforge returned a non-JSON body with HTTP '.$response->status().'.'
             );

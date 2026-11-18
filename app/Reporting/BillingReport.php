@@ -8,33 +8,15 @@ use App\Enums\GenerationStatus;
 use App\Models\Generation;
 use App\Pixelforge\Money;
 use App\Pixelforge\PixelforgeClient;
-use App\Pixelforge\UsageReport;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * The operator report: credit spend, provider cost and profit, per UTC day and
- * per user, reconciled against the provider's own billing record.
- *
- * Two things make it trustworthy rather than merely plausible:
- *
- *   - It groups by `billed_on_utc`, derived from the provider's `completed_at`.
- *     Pixelforge bills "on the UTC day it completed, not the day it was
- *     created", so grouping any other way produces a report that almost ties
- *     out, which is worse than one that obviously does not.
- *   - It compares our computed provider cost to GET /v1/usage as exact
- *     integers, and when that endpoint is unreachable it says so explicitly
- *     instead of presenting our own figures as verified.
- */
 final readonly class BillingReport
 {
     public function __construct(private PixelforgeClient $client) {}
 
-    /**
-     * @return array<string, mixed>
-     */
     public function build(CarbonImmutable $startDate, CarbonImmutable $endDate): array
     {
         $start = $startDate->toDateString();
@@ -48,8 +30,6 @@ final readonly class BillingReport
         $totals = ['generations' => 0, 'spend' => 0, 'cost' => 0, 'provider_reported' => 0];
         $anyDiscrepancy = false;
 
-        // Walk every day in the window, including days with no activity, so the
-        // report lines up with the provider's own zero-filled response.
         foreach ($this->datesBetween($startDate, $endDate) as $date) {
             $ours = $ourDays[$date] ?? ['generations' => 0, 'spend' => 0, 'cost' => 0];
 
@@ -70,8 +50,7 @@ final readonly class BillingReport
                 'credit_spend' => $this->money($spend),
                 'provider_cost' => $this->money($cost),
                 'profit' => $this->money($spend->minus($cost)),
-                // Null when the provider's record could not be fetched -- the UI
-                // renders this as "unavailable", never as agreement.
+
                 'provider_reported_cost' => $reported === null ? null : $this->money($reported),
                 'delta' => $delta === null ? null : $this->money($delta),
                 'reconciled' => $matches,
@@ -101,7 +80,6 @@ final readonly class BillingReport
                     : $this->money(Money::fromNanodollars($totals['provider_reported'] - $totals['cost'])),
             ],
             'reconciliation' => [
-                // The distinction the UI depends on: did we verify, and did it agree?
                 'available' => $providerUsage !== null,
                 'error' => $usageError,
                 'matches' => $providerUsage === null ? null : ! $anyDiscrepancy,
@@ -109,9 +87,6 @@ final readonly class BillingReport
         ];
     }
 
-    /**
-     * @return array{0: ?UsageReport, 1: ?string}
-     */
     private function fetchProviderUsage(string $start, string $end): array
     {
         try {
@@ -125,11 +100,6 @@ final readonly class BillingReport
         }
     }
 
-    /**
-     * Our own billed totals per UTC day.
-     *
-     * @return array<string, array{generations: int, spend: int, cost: int}>
-     */
     private function ourDailyTotals(string $start, string $end): array
     {
         return Generation::query()
@@ -150,11 +120,6 @@ final readonly class BillingReport
             ->all();
     }
 
-    /**
-     * Per-user totals for the window, so an operator can see who spent what.
-     *
-     * @return array<int, array<string, mixed>>
-     */
     private function perUserTotals(string $start, string $end): array
     {
         return Generation::query()
@@ -180,9 +145,6 @@ final readonly class BillingReport
             ->all();
     }
 
-    /**
-     * @return array<int, string>
-     */
     private function datesBetween(CarbonImmutable $start, CarbonImmutable $end): array
     {
         $dates = [];
@@ -194,12 +156,6 @@ final readonly class BillingReport
         return $dates;
     }
 
-    /**
-     * Money for the UI: an exact string for auditing, a rounded one for reading,
-     * and the integer for any client-side sorting.
-     *
-     * @return array<string, mixed>
-     */
     private function money(Money $money): array
     {
         return [

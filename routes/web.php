@@ -17,9 +17,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/generate', [GenerationController::class, 'create'])->name('generations.create');
     Route::post('/generate', [GenerationController::class, 'store'])->name('generations.store');
 
-    // Debounced live quote. GET because it is a pure read with no side effects,
-    // which also keeps it clear of CSRF plumbing. One implementation of the
-    // pricing maths, in PHP, shared by this endpoint and the submission path.
     Route::get('/generate/estimate', [GenerationController::class, 'estimate'])
         ->name('generations.estimate');
 
@@ -41,14 +38,6 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-/*
- * Pixelforge webhooks.
- *
- * Deliberately outside the auth and CSRF-protected flows: Pixelforge has no
- * session and no CSRF token. Authenticity comes from the HMAC signature on the
- * raw body instead, which is checked before anything in the payload is trusted.
- * The CSRF exclusion is declared in bootstrap/app.php.
- */
 Route::post('/webhooks/pixelforge', PixelforgeWebhookController::class)
     ->name('webhooks.pixelforge');
 

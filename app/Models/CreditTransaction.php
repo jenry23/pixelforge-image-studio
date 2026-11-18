@@ -12,10 +12,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/**
- * One immutable entry in the credit ledger. Never updated, never deleted --
- * balances are a fold over these rows, so history is always reconstructible.
- */
 class CreditTransaction extends Model
 {
     use HasFactory;

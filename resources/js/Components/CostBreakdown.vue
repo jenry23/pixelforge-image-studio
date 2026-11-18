@@ -1,14 +1,6 @@
 <script setup>
 import MoneyFigure from './MoneyFigure.vue'
 
-/**
- * Where the cost comes from, token type by token type.
- *
- * The `exact` flag on each row is the honest part: output and reference-image
- * tokens are fixed by the request itself, while input text and reasoning are
- * only known once Pixelforge has finished. Saying which is which is more useful
- * than a single total, because it explains why the quote is a range at all.
- */
 defineProps({
     breakdown: { type: Array, required: true },
 })
@@ -41,8 +33,6 @@ const tokens = (row) =>
                 </td>
 
                 <td class="w-20 py-2 pl-3 text-right text-xs">
-                    <!-- Not a decorative tag: it states whether this number can
-                         still move before you are charged. -->
                     <span v-if="row.exact" class="text-dim">exact</span>
                     <span v-else class="text-estimate/80">varies</span>
                 </td>

@@ -8,20 +8,10 @@ use InvalidArgumentException;
 use JsonSerializable;
 use Stringable;
 
-/**
- * An exact USD amount held as an integer number of nanodollars.
- *
- * Pixelforge reports money as an exact decimal string with nine decimal places
- * ("0.011707500") and explicitly recommends integer nanodollars, so one
- * nanodollar is the natural atom here: every amount the provider can express is
- * representable without rounding, and no float ever touches the money path.
- */
 final readonly class Money implements JsonSerializable, Stringable
 {
-    /** Nanodollars in one US dollar. */
     public const int SCALE = 1_000_000_000;
 
-    /** Decimal places the provider uses, which SCALE is chosen to match. */
     public const int DECIMALS = 9;
 
     private function __construct(public int $nanodollars) {}
@@ -36,12 +26,6 @@ final readonly class Money implements JsonSerializable, Stringable
         return new self(0);
     }
 
-    /**
-     * Parse an exact decimal USD string such as "12.50" or "0.011707500".
-     *
-     * Parsed by integer string manipulation rather than a cast, because
-     * (int) (0.011707500 * 1e9) is off by one on some platforms.
-     */
     public static function fromUsdString(string $usd): self
     {
         $trimmed = trim($usd);
@@ -53,7 +37,6 @@ final readonly class Money implements JsonSerializable, Stringable
         $fraction = $m['fraction'] ?? '';
 
         if (strlen($fraction) > self::DECIMALS) {
-            // Refuse silently losing precision rather than rounding behind the caller's back.
             if (rtrim(substr($fraction, self::DECIMALS), '0') !== '') {
                 throw new InvalidArgumentException(
                     "USD string [{$usd}] has more precision than one nanodollar."
@@ -88,14 +71,6 @@ final readonly class Money implements JsonSerializable, Stringable
         return new self($this->nanodollars * $tokens);
     }
 
-    /**
-     * Apply a markup expressed as an exact rational (numerator/denominator).
-     *
-     * A rational keeps the result exact: the 25% markup is x5/4, and every
-     * per-token rate Pixelforge publishes is divisible by 4, so no remainder
-     * can appear. If a future rate ever broke that, this throws instead of
-     * quietly rounding a user's charge.
-     */
     public function withMarkup(int $numerator, int $denominator): self
     {
         if ($denominator === 0) {
@@ -134,7 +109,6 @@ final readonly class Money implements JsonSerializable, Stringable
         return $this->nanodollars >= $other->nanodollars;
     }
 
-    /** The provider's wire format: exact, unrounded, nine decimal places. */
     public function toUsdString(): string
     {
         $sign = $this->nanodollars < 0 ? '-' : '';
@@ -148,10 +122,6 @@ final readonly class Money implements JsonSerializable, Stringable
         );
     }
 
-    /**
-     * A display string rounded to the given decimals (half-up), for the UI only.
-     * Never round before summing; round once, at the edge.
-     */
     public function toDisplayString(int $decimals = 6): string
     {
         if ($decimals < 0 || $decimals > self::DECIMALS) {
@@ -162,7 +132,6 @@ final readonly class Money implements JsonSerializable, Stringable
         $sign = $this->nanodollars < 0 ? '-' : '';
         $abs = abs($this->nanodollars);
 
-        // Half-up rounding on integers, so no float rounding mode surprises.
         $units = intdiv($abs + intdiv($divisor, 2), $divisor);
         $scale = 10 ** $decimals;
 
@@ -172,9 +141,6 @@ final readonly class Money implements JsonSerializable, Stringable
                 str_pad((string) ($units % $scale), $decimals, '0', STR_PAD_LEFT));
     }
 
-    /**
-     * @return array{nanodollars: int, usd: string}
-     */
     public function jsonSerialize(): array
     {
         return [

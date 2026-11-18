@@ -3,13 +3,6 @@ import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import MoneyFigure from './MoneyFigure.vue'
 
-/**
- * Credits, and what is currently reserved.
- *
- * Reserved credit is shown separately rather than folded into one number,
- * because the difference is what stops a user starting a generation they cannot
- * pay for: the balance is what they own, available is what they can spend.
- */
 const props = defineProps({
     balance: { type: Object, required: true },
 })

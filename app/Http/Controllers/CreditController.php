@@ -11,17 +11,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
-/**
- * "Buy credits" -- a fake purchase, but a real ledger entry.
- *
- * No payment provider is involved, so the amounts are restricted to a fixed set
- * of packs rather than accepting an arbitrary number from the client. That keeps
- * a request body from being able to mint any balance it likes, which is the
- * habit the real version of this would need anyway.
- */
 class CreditController extends Controller
 {
-    /** Dollar amounts a user may top up by. */
     public const array PACKS = ['1.00', '5.00', '20.00'];
 
     public function __construct(private readonly LedgerWriter $ledger) {}

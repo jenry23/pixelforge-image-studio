@@ -19,26 +19,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Establishes what actually happened to a generation whose submission ended
- * ambiguously.
- *
- * The mechanism is the idempotency key, used for exactly what it is for. Because
- * the key and the parameters are both unchanged, replaying the create has only
- * two possible outcomes, and neither can bill us twice:
- *
- *   - the original request did reach Pixelforge: we get that same generation
- *     back with `Idempotent-Replayed: true`, adopt it, and bill it correctly;
- *   - it never arrived: the replay creates it once, and the user gets the image
- *     they asked and reserved credit for.
- *
- * The credit hold is held throughout, because until this resolves we may owe
- * Pixelforge for a generation we cannot see. If the bounded window expires
- * without an answer we fail closed: release the hold, tell the user plainly they
- * were not charged, and log loudly -- and the admin reconciliation page will
- * surface any provider cost we failed to record, so the gap is visible rather
- * than silent.
- */
 class ResolveUnknownGeneration implements ShouldQueue
 {
     use Queueable;
@@ -62,7 +42,6 @@ class ResolveUnknownGeneration implements ShouldQueue
         $generation = Generation::query()->find($this->generationId);
 
         if ($generation === null || $generation->status !== GenerationStatus::Unknown) {
-            // Already resolved, by a late webhook or the reconciler.
             return;
         }
 
@@ -82,13 +61,10 @@ class ResolveUnknownGeneration implements ShouldQueue
 
             return;
         } catch (RejectedException $e) {
-            // A definitive refusal now tells us nothing was ever created, which
-            // resolves the ambiguity: the user owes nothing.
             $this->concludeNothingExists($generation, $ledger, $e->errorCode ?? 'rejected', $e->getMessage());
 
             return;
         } catch (AmbiguousOutcomeException) {
-            // Still cannot tell. Keep the hold and try again shortly.
             $this->release(30);
 
             return;
@@ -114,10 +90,6 @@ class ResolveUnknownGeneration implements ShouldQueue
         )->isPast();
     }
 
-    /**
-     * We established that nothing exists provider-side, so the reservation can
-     * be released safely.
-     */
     private function concludeNothingExists(
         Generation $generation,
         LedgerWriter $ledger,
@@ -127,9 +99,6 @@ class ResolveUnknownGeneration implements ShouldQueue
         $this->finalise($generation, $ledger, $code, $message);
     }
 
-    /**
-     * The window closed without an answer. Fail closed and make it loud.
-     */
     private function giveUp(Generation $generation, LedgerWriter $ledger): void
     {
         Log::error(
@@ -156,7 +125,6 @@ class ResolveUnknownGeneration implements ShouldQueue
         $ledger->forUser($generation->user_id, function (User $user) use ($generation, $ledger, $code, $message) {
             $fresh = Generation::query()->whereKey($generation->getKey())->lockForUpdate()->firstOrFail();
 
-            // Never overwrite real provider news that arrived while we waited.
             if ($fresh->status !== GenerationStatus::Unknown) {
                 return;
             }

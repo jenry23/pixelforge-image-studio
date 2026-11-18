@@ -1,13 +1,6 @@
 <script setup>
 import { computed } from 'vue'
 
-/**
- * Up to four reference image URLs.
- *
- * Each one adds exactly 765 input image tokens, which is knowable up front, so
- * the running cost is shown against the control that causes it. Pixelforge never
- * downloads these, so there is nothing to validate beyond the URL itself.
- */
 const props = defineProps({
     modelValue: { type: Array, required: true },
     max: { type: Number, default: 4 },

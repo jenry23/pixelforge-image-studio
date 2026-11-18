@@ -1,19 +1,7 @@
 <script setup>
-/**
- * A money amount.
- *
- * `certainty` is the whole point: an amber figure is one we do not know yet, a
- * cyan figure is one Pixelforge has settled and we hold exactly. Those two hues
- * are used nowhere else in the interface, so the colour alone tells you whether
- * a number is a guess.
- *
- * The exact nine-decimal value is always available on hover, even when a
- * rounded one is displayed, so nothing is ever only approximately inspectable.
- */
 const props = defineProps({
-    /** Pre-rounded display string from the server, e.g. "0.014634". */
     value: { type: String, required: true },
-    /** Exact nine-decimal string, shown on hover. */
+
     exact: { type: String, default: null },
     certainty: {
         type: String,

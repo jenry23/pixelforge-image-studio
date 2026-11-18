@@ -4,13 +4,10 @@ import Form from '@/Components/Form/Form.vue'
 import FormInput from '@/Components/Form/FormInput.vue'
 import AuthLayout from '@/Layouts/AuthLayout.vue'
 
-/** Page-specific props live next to the page that receives them. */
 interface Props {
-    /** Session status message, e.g. after a password change. */
     status?: string
 }
 
-/** The exact payload POSTed to the login route. */
 interface LoginForm {
     email: string
     password: string
@@ -62,6 +59,7 @@ function submit(): void {
     >
         <FormInput
             v-model="form.email"
+            name="email"
             label="Email"
             type="email"
             placeholder="you@example.com"
@@ -72,6 +70,7 @@ function submit(): void {
 
         <FormInput
             v-model="form.password"
+            name="password"
             label="Password"
             type="password"
             placeholder="Enter your password"

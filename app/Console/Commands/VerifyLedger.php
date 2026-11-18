@@ -12,20 +12,6 @@ use App\Models\User;
 use App\Pixelforge\Money;
 use Illuminate\Console\Command;
 
-/**
- * Proves the money still adds up.
- *
- * The append-only ledger is the source of truth; `users.balance_nanodollars` and
- * `held_nanodollars` are a cache written in the same transaction. That design is
- * only trustworthy if the claim is actually checked, so this command folds the
- * ledger and compares, and also looks for the two invariant breaches that would
- * indicate a real bug:
- *
- *   - more than one charge recorded against a single generation;
- *   - a settled generation still holding reserved credit.
- *
- * Exits non-zero on any discrepancy so it can be wired into monitoring.
- */
 class VerifyLedger extends Command
 {
     protected $signature = 'pixelforge:verify-ledger';
@@ -83,14 +69,8 @@ class VerifyLedger extends Command
         return $problems;
     }
 
-    /**
-     * The unique index makes this impossible, which is exactly why it is worth
-     * asserting: if it ever reports something, the constraint is gone.
-     */
     private function checkSingleChargePerGeneration(): int
     {
-        // A genuine aggregate over the ledger, rather than a HAVING against a
-        // correlated subquery (which SQLite rejects outright).
         $offenders = CreditTransaction::query()
             ->select('generation_id')
             ->selectRaw('COUNT(*) as charge_count')
@@ -126,7 +106,6 @@ class VerifyLedger extends Command
         return $offenders->count();
     }
 
-    /** A failed generation must cost the user nothing. */
     private function checkFailedGenerationsAreFree(): int
     {
         $offenders = Generation::query()

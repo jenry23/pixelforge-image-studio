@@ -11,30 +11,10 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * Records a verified webhook delivery and applies it, in that order.
- *
- * The ordering is the point. The event row is inserted and committed *before*
- * the state transition is attempted, which gives two guarantees:
- *
- *   - `UNIQUE (event_id)` means a redelivery cannot create a second record, so
- *     an event delivered twice can never be billed twice -- the database
- *     enforces that, not an application check that could race;
- *   - if the process dies between recording and applying, the event is still
- *     durably ours with `applied_at` null, and the reconciler finishes the work.
- *     Nothing is lost, so acknowledging is always safe.
- *
- * A redelivery of an event we recorded but never applied is therefore useful
- * rather than wasted: we retry the apply, which means Pixelforge's own retry
- * schedule helps us recover.
- */
 final readonly class IngestWebhookEvent
 {
     public function __construct(private ApplyProviderState $applyProviderState) {}
 
-    /**
-     * @param  array<string, mixed>  $payload  the decoded event body
-     */
     public function __invoke(
         array $payload,
         string $eventId,
@@ -48,7 +28,6 @@ final readonly class IngestWebhookEvent
         );
 
         if ($isDuplicate && $event->wasApplied()) {
-            // Already recorded and already acted on: a pure no-op.
             return $event;
         }
 
@@ -64,12 +43,6 @@ final readonly class IngestWebhookEvent
         return $event->refresh();
     }
 
-    /**
-     * Insert the event, or return the existing row if this id has been seen.
-     *
-     * @param  array<string, mixed>  $payload
-     * @return array{0: WebhookEvent, 1: bool}
-     */
     private function record(
         array $payload,
         string $eventId,
@@ -95,7 +68,6 @@ final readonly class IngestWebhookEvent
 
             return [$event, false];
         } catch (UniqueConstraintViolationException) {
-            // The deduplication invariant doing its job.
             return [
                 WebhookEvent::query()->where('event_id', $eventId)->firstOrFail(),
                 true,
@@ -103,17 +75,6 @@ final readonly class IngestWebhookEvent
         }
     }
 
-    /**
-     * Find the local generation this event belongs to.
-     *
-     * `metadata.generation_id` is tried first because it is the only thing that
-     * works when a webhook overtakes the create response: at that moment we have
-     * no provider id stored, but we did send our own id in metadata, which the
-     * provider returns "in every webhook, so you can match them to your own
-     * records".
-     *
-     * @param  mixed  $object  the `data.object` from the payload
-     */
     private function resolveGenerationId(mixed $object): ?string
     {
         if (! is_array($object)) {
@@ -135,10 +96,8 @@ final readonly class IngestWebhookEvent
         return null;
     }
 
-    /** Apply the event's state transition and record what it did. */
     private function apply(WebhookEvent $event): void
     {
-        // `ping` is a dashboard test event with no generation attached.
         if ($event->event_type === 'ping') {
             $event->forceFill(['applied_at' => now()])->save();
 
@@ -146,9 +105,6 @@ final readonly class IngestWebhookEvent
         }
 
         if ($event->generation_id === null) {
-            // Validly signed but unmatchable, which can happen if an event for a
-            // generation created by another environment sharing this account
-            // reaches us. Kept, not discarded, and left for the reconciler.
             $event->forceFill(['ignored_reason' => 'unmatched'])->save();
 
             return;
@@ -167,8 +123,7 @@ final readonly class IngestWebhookEvent
 
         $event->forceFill($outcome->applied
             ? ['applied_at' => now(), 'ignored_reason' => null]
-            // Recorded, acknowledged, and deliberately changed nothing -- a
-            // duplicate or out-of-order delivery, kept auditable.
+
             : ['applied_at' => null, 'ignored_reason' => $outcome->reason])
             ->save();
     }

@@ -4,11 +4,6 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
-/**
- * The four token kinds Pixelforge bills separately. The values match the keys
- * used in the provider's `rates`, `usage` and `/v1/usage` payloads, so the same
- * enum drives pricing, settlement and reconciliation.
- */
 enum TokenType: string
 {
     case InputText = 'input_text_tokens';
@@ -26,12 +21,6 @@ enum TokenType: string
         };
     }
 
-    /**
-     * Whether the exact count is knowable before the generation runs.
-     *
-     * Output and image tokens are fixed by the request itself; input text is an
-     * estimate within +/-15%, and reasoning is only known at completion.
-     */
     public function isKnownUpFront(): bool
     {
         return match ($this) {

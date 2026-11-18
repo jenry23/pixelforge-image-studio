@@ -19,7 +19,6 @@ enum GenerationSize: string
         };
     }
 
-    /** @return array<int, array{value: string, label: string}> */
     public static function options(): array
     {
         return array_map(

@@ -3,28 +3,17 @@ import { computed, ref, useId } from 'vue'
 import Eye from '@/Components/Icons/Eye.vue'
 import EyeSlash from '@/Components/Icons/EyeSlash.vue'
 
-/**
- * A labelled text field: label, input, optional hint, and validation error.
- *
- * The field owns the wiring that is easy to forget and invisible when missing —
- * the label's `for`, `aria-describedby` pointing at the hint and the error, and
- * `aria-invalid` — so a screen reader hears the error with the field rather
- * than as loose text somewhere on the page. IDs come from Vue's `useId()`, so
- * they are stable across renders and unique even with two of these on a page.
- *
- * Password fields can be revealed. The toggle is a real button with
- * `aria-pressed`, and it is never a tab-stop trap: it sits after the input in
- * DOM order, so tabbing goes field, toggle, next field.
- */
 export type FormInputType = 'text' | 'email' | 'password' | 'url'
 
 interface Props {
     label: string
-    /** Native input type. `password` gains a reveal toggle unless disabled. */
+    name: string
+    id?: string
+
     type?: FormInputType
-    /** Help text rendered under the field and announced with it. */
+
     hint?: string
-    /** Validation message from the server; also sets `aria-invalid`. */
+
     error?: string
     placeholder?: string
     autocomplete?: string
@@ -33,11 +22,12 @@ interface Props {
     readonly?: boolean
     autofocus?: boolean
     maxlength?: number
-    /** Allow revealing a password field. Ignored for other types. */
+
     revealable?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
+    id: undefined,
     type: 'text',
     hint: undefined,
     error: undefined,
@@ -51,11 +41,10 @@ const props = withDefaults(defineProps<Props>(), {
     revealable: true,
 })
 
-/** Typed two-way binding; always a string, including for password fields. */
 const model = defineModel<string>({ required: true })
 
 const uid = useId()
-const inputId = `${uid}-input`
+const inputId = computed(() => props.id ?? props.name ?? `${uid}-input`)
 const hintId = `${uid}-hint`
 const errorId = `${uid}-error`
 
@@ -64,15 +53,10 @@ const revealed = ref(false)
 const isPassword = computed(() => props.type === 'password')
 const canReveal = computed(() => isPassword.value && props.revealable && !props.disabled)
 
-/** Swapping the type is what actually reveals the characters. */
 const resolvedType = computed<FormInputType>(() =>
     isPassword.value && revealed.value ? 'text' : props.type,
 )
 
-/**
- * Only reference ids that are actually rendered — pointing at a missing element
- * makes some screen readers announce nothing at all.
- */
 const describedBy = computed(() => {
     const ids = [props.hint ? hintId : null, props.error ? errorId : null].filter(Boolean)
 
@@ -94,6 +78,7 @@ defineExpose({ focus: () => inputRef.value?.focus() })
             <input
                 :id="inputId"
                 ref="inputRef"
+                :name="name"
                 v-model="model"
                 :type="resolvedType"
                 :placeholder="placeholder"
@@ -126,8 +111,6 @@ defineExpose({ focus: () => inputRef.value?.focus() })
             {{ hint }}
         </p>
 
-        <!-- `role="alert"` so the message is announced when it appears after a
-             failed submit, not only when the field is next focused. -->
         <p v-if="error" :id="errorId" role="alert" class="mt-2 text-xs text-fail">
             {{ error }}
         </p>

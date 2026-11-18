@@ -15,23 +15,6 @@ use App\Pixelforge\PixelforgeClient;
 use Illuminate\Console\Command;
 use Throwable;
 
-/**
- * Brings anything stuck back in line with the provider, by polling.
- *
- * Webhook delivery "isn't guaranteed", so an app that only listens for webhooks
- * is an app that eventually strands a generation -- and, with the hold design, a
- * user's credits along with it. This command is the second half of the brief's
- * "a webhook **or by polling**", and it closes four distinct gaps:
- *
- *   1. in-flight generations the provider never told us about;
- *   2. events we recorded durably but crashed before applying;
- *   3. submissions whose job was lost before it ever ran;
- *   4. ambiguous submissions still awaiting resolution.
- *
- * Everything it learns goes through the same ApplyProviderState action the
- * webhook path uses, so polling and webhooks cannot reach different conclusions,
- * and whichever arrives first wins while the other becomes a no-op.
- */
 class ReconcileGenerations extends Command
 {
     protected $signature = 'pixelforge:reconcile
@@ -54,10 +37,6 @@ class ReconcileGenerations extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Events that were durably recorded but never applied -- the crash window
-     * between acknowledging a webhook and acting on it.
-     */
     private function applyRecordedButUnappliedEvents(ApplyProviderState $applyProviderState): int
     {
         $count = 0;
@@ -90,11 +69,6 @@ class ReconcileGenerations extends Command
         return $count;
     }
 
-    /**
-     * Generations the provider has gone quiet about. A typical generation
-     * completes in 5-30 seconds, so silence well past that means we probably
-     * lost an event.
-     */
     private function pollStaleGenerations(PixelforgeClient $client, ApplyProviderState $applyProviderState): int
     {
         $staleAfter = (int) config('services.pixelforge.reconcile_after_seconds', 45);
@@ -110,7 +84,6 @@ class ReconcileGenerations extends Command
                 try {
                     $providerGeneration = $client->retrieveGeneration($generation->provider_id);
                 } catch (PixelforgeException|Throwable $e) {
-                    // Leave it for the next pass rather than failing the whole run.
                     $this->warn("Could not poll {$generation->getKey()}: {$e->getMessage()}");
 
                     return;
@@ -130,11 +103,6 @@ class ReconcileGenerations extends Command
         return $count;
     }
 
-    /**
-     * Submissions whose queued job never ran -- a worker killed between the
-     * commit and the job being picked up. Safe to re-dispatch because the job is
-     * idempotent and the generation already holds its idempotency key.
-     */
     private function redispatchLostSubmissions(): int
     {
         $count = 0;

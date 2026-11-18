@@ -10,33 +10,15 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Receives Pixelforge webhooks.
- *
- * Anyone can POST here, so nothing is trusted until the signature verifies
- * against the raw body. Work is kept small and synchronous: the whole handler is
- * a signature check, one insert and one short transaction, which stays well
- * inside the provider's 10-second acknowledgement budget while guaranteeing the
- * event is durably recorded before we answer 2xx.
- *
- * Queueing the work instead would let us answer faster but would mean
- * acknowledging an event before it was safely ours -- the opposite of what we
- * want, since a lost queue job after a 2xx is an event Pixelforge will never
- * resend.
- */
 class PixelforgeWebhookController extends Controller
 {
     public function __invoke(Request $request, IngestWebhookEvent $ingest): Response
     {
-        // The raw body, before any decoding: re-encoding JSON changes bytes and
-        // would invalidate the HMAC.
         $rawBody = $request->getContent();
 
         $secret = (string) config('services.pixelforge.webhook_secret');
 
         if ($secret === '') {
-            // Refusing is safer than accepting unverified events; a non-2xx also
-            // makes the misconfiguration visible in the Pixelforge dashboard.
             Log::error('A Pixelforge webhook arrived but no signing secret is configured.');
 
             return response('Webhook signing secret is not configured.', 500);
@@ -54,9 +36,6 @@ class PixelforgeWebhookController extends Controller
         }
 
         if (! $signature->isFresh((int) config('services.pixelforge.webhook_tolerance_seconds', 300))) {
-            // A correctly signed but stale delivery is a replay attempt. Each
-            // genuine attempt is signed with a fresh timestamp, so a real retry
-            // is never stale.
             Log::warning('Rejected a Pixelforge webhook with a stale timestamp.', [
                 'event_id' => $request->header('Pixelforge-Event-Id'),
                 'signature_timestamp' => $signature->timestamp,
@@ -81,7 +60,6 @@ class PixelforgeWebhookController extends Controller
             rawBody: $rawBody,
         );
 
-        // Only now, with the event committed, do we acknowledge it.
         return response()->noContent();
     }
 }

@@ -6,14 +6,8 @@ namespace App\Pixelforge;
 
 use App\Enums\TokenType;
 
-/**
- * One UTC day of provider usage, as GET /v1/usage reports it.
- */
 final readonly class UsageDay
 {
-    /**
-     * @param  array<string, int>  $tokens
-     */
     public function __construct(
         public string $date,
         public int $generations,
@@ -21,9 +15,6 @@ final readonly class UsageDay
         public Money $cost,
     ) {}
 
-    /**
-     * @param  array<string, mixed>  $row
-     */
     public static function fromArray(array $row): self
     {
         $tokens = [];
@@ -36,7 +27,7 @@ final readonly class UsageDay
             date: (string) ($row['date'] ?? ''),
             generations: (int) ($row['generations'] ?? 0),
             tokens: $tokens,
-            // Exact decimal string; parsed, never cast through a float.
+
             cost: Money::fromUsdString((string) ($row['cost_usd'] ?? '0')),
         );
     }

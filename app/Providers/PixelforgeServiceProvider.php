@@ -19,8 +19,6 @@ class PixelforgeServiceProvider extends ServiceProvider
             client: $app->make(PixelforgeClient::class),
         ));
 
-        // The markup lives in configuration, but it is read once here so there is
-        // a single engine instance and a single source of the rate.
         $this->app->singleton(PricingEngine::class, fn () => new PricingEngine(
             markupPercent: (int) config('services.pixelforge.markup_percent', 25),
         ));

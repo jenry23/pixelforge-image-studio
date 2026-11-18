@@ -11,10 +11,6 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             $table->boolean('is_admin')->default(false)->after('email_verified_at');
 
-            // Materialised cache of the append-only ledger, written in the same
-            // transaction as the ledger row. The ledger is the source of truth;
-            // `pixelforge:verify-ledger` asserts these agree with it, so drift is
-            // detectable rather than theoretical.
             $table->bigInteger('balance_nanodollars')->default(0)->after('is_admin');
             $table->bigInteger('held_nanodollars')->default(0)->after('balance_nanodollars');
         });

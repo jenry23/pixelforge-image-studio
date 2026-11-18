@@ -157,6 +157,7 @@ function submit(): void {
             <Form :processing="form.processing" @submit="submit">
                 <FormTextarea
                     v-model="form.prompt"
+                    name="prompt"
                     label="Prompt"
                     placeholder="A brass astrolabe resting on dark blue velvet, lit from one side"
                     :rows="5"

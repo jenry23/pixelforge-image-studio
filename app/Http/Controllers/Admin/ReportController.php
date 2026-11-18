@@ -20,9 +20,6 @@ class ReportController extends Controller
             'end_date' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
-        // Default to the last 14 UTC days inclusive. UTC throughout, because the
-        // provider attributes usage by UTC day and a local-time window would
-        // split days against its records.
         $end = isset($validated['end_date'])
             ? CarbonImmutable::parse($validated['end_date'], 'UTC')
             : CarbonImmutable::now('UTC');
@@ -31,7 +28,6 @@ class ReportController extends Controller
             ? CarbonImmutable::parse($validated['start_date'], 'UTC')
             : $end->subDays(13);
 
-        // The provider caps a usage query at 92 days.
         if ($start->diffInDays($end) > 91) {
             $start = $end->subDays(91);
         }

@@ -1,5 +1,4 @@
 <template>
-    <!-- Heroicons outline "eye-slash", the paired state for the password toggle. -->
     <svg
         viewBox="0 0 24 24"
         fill="none"

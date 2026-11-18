@@ -9,27 +9,16 @@ use App\Enums\GenerationSize;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-/**
- * Validates a generation request against the provider's own documented limits,
- * so a request that Pixelforge would reject with 422 never leaves our app and
- * never consumes a slot against the per-minute rate limit.
- */
 class StoreGenerationRequest extends FormRequest
 {
-    /**
-     * @return array<string, mixed>
-     */
     public function rules(): array
     {
         return [
-            // "At most 4,000 characters" -- counted as characters, matching the
-            // provider's Unicode-character counting rather than bytes.
             'prompt' => ['required', 'string', 'min:1', 'max:4000'],
 
             'size' => ['required', Rule::enum(GenerationSize::class)],
             'quality' => ['required', Rule::enum(GenerationQuality::class)],
 
-            // "Optional http(s) image URLs to guide the style, at most 4."
             'reference_images' => ['array', 'max:4'],
             'reference_images.*' => [
                 'required',
@@ -40,9 +29,6 @@ class StoreGenerationRequest extends FormRequest
         ];
     }
 
-    /**
-     * @return array<string, string>
-     */
     public function messages(): array
     {
         return [
@@ -54,8 +40,6 @@ class StoreGenerationRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        // Drop empty rows from the dynamic reference-image inputs so a blank
-        // field is simply absent rather than a validation error.
         $this->merge([
             'reference_images' => array_values(array_filter(
                 (array) $this->input('reference_images', []),
@@ -64,9 +48,6 @@ class StoreGenerationRequest extends FormRequest
         ]);
     }
 
-    /**
-     * @return array<int, string>
-     */
     public function referenceImages(): array
     {
         return array_map('trim', $this->validated('reference_images', []));

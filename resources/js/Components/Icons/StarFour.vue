@@ -1,10 +1,4 @@
 <template>
-    <!--
-        A simple four-point star, used beside the wordmark.
-
-        Solid rather than outlined: at 20px an outlined four-point star loses its
-        points to the stroke and reads as a smudge.
-    -->
     <svg
         viewBox="0 0 24 24"
         fill="currentColor"

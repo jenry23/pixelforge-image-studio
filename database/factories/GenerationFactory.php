@@ -12,14 +12,10 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
-/**
- * @extends Factory<Generation>
- */
 class GenerationFactory extends Factory
 {
     protected $model = Generation::class;
 
-    /** The rates the live API currently fixes generations at. */
     public const array RATES = [
         'input_text_tokens' => '5.00',
         'input_image_tokens' => '10.00',
@@ -31,8 +27,7 @@ class GenerationFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            // Persisted before the first provider request, exactly as the real
-            // submission path does it.
+
             'idempotency_key' => (string) Str::uuid(),
             'provider_id' => null,
             'status' => GenerationStatus::Pending,
@@ -52,7 +47,6 @@ class GenerationFactory extends Factory
         ];
     }
 
-    /** Accepted by the provider and waiting in its queue. */
     public function queued(): static
     {
         return $this->state(fn (): array => [
@@ -72,7 +66,6 @@ class GenerationFactory extends Factory
         ]);
     }
 
-    /** Settled successfully, with the exact cost we verified against /v1/usage. */
     public function succeeded(): static
     {
         return $this->queued()->state(fn (): array => [
@@ -110,7 +103,6 @@ class GenerationFactory extends Factory
         ]);
     }
 
-    /** Submission ended ambiguously; the credit hold is deliberately retained. */
     public function unknownOutcome(): static
     {
         return $this->state(fn (): array => [

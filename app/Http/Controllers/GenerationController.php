@@ -26,7 +26,6 @@ class GenerationController extends Controller
         private readonly PricingEngine $pricing,
     ) {}
 
-    /** The generate page, with an opening quote so the cost is never blank. */
     public function create(Request $request): Response
     {
         return Inertia::render('Generations/Create', [
@@ -42,13 +41,6 @@ class GenerationController extends Controller
         ]);
     }
 
-    /**
-     * Price a prospective request.
-     *
-     * The frontend debounces onto this rather than reimplementing the pricing
-     * maths in JavaScript. One tested implementation, in PHP, is worth a small
-     * round trip for a number users are going to rely on.
-     */
     public function estimate(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -68,7 +60,6 @@ class GenerationController extends Controller
         ]);
     }
 
-    /** The user's generations, newest first, with live status. */
     public function index(Request $request): Response
     {
         $generations = $request->user()
@@ -80,8 +71,7 @@ class GenerationController extends Controller
         return Inertia::render('Generations/Index', [
             'generations' => GenerationResource::collection($generations),
             'balance' => $this->balanceFor($request),
-            // Lets the frontend poll only while something is actually in flight,
-            // so a settled history page makes no requests at all.
+
             'hasPending' => $request->user()->generations()->awaitingProvider()->exists(),
         ]);
     }
@@ -104,9 +94,6 @@ class GenerationController extends Controller
             ->with('success', 'Your generation is on its way.');
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     private function quote(string $prompt, GenerationSize $size, GenerationQuality $quality, int $references): array
     {
         return $this->pricing->estimate(
@@ -118,9 +105,6 @@ class GenerationController extends Controller
         )->jsonSerialize();
     }
 
-    /**
-     * @return array<string, mixed>
-     */
     private function balanceFor(Request $request): array
     {
         $user = $request->user();

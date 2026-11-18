@@ -2,27 +2,12 @@
 import { computed } from 'vue'
 import MoneyFigure from './MoneyFigure.vue'
 
-/**
- * The one bold element in this interface: the cost band.
- *
- * Output and reference-image tokens are known exactly before a generation runs,
- * but input text carries +/-15% variance and reasoning is only counted at
- * completion -- and for `high` quality the reasoning range alone spans $0.0875,
- * more than the rest of a typical generation. A single "estimated cost" would
- * therefore be a misleading number dressed up as a fact.
- *
- * So the uncertainty is drawn: a measured scale from the cheapest to the dearest
- * this generation could be, with a marker at the expected figure. When the
- * generation settles, the band is replaced by one exact number -- the band
- * collapsing to a point is the moment this product is about.
- */
 const props = defineProps({
     min: { type: Object, required: true },
     expected: { type: Object, required: true },
     max: { type: Object, required: true },
 })
 
-/** Where the expected figure sits along the band, as a percentage. */
 const markerPosition = computed(() => {
     const min = Number(props.min.nanodollars)
     const max = Number(props.max.nanodollars)
@@ -46,8 +31,6 @@ const markerPosition = computed(() => {
             <span class="text-sm text-muted">expected</span>
         </div>
 
-        <!-- The band itself. Endpoints are hard limits, not decoration: the
-             charge cannot fall outside them. -->
         <div class="mt-5">
             <div class="relative h-px bg-line-bright">
                 <span class="absolute -top-1 left-0 h-2 w-px bg-line-bright" aria-hidden="true" />

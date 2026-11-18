@@ -1,6 +1,4 @@
 <template>
-    <!-- Heroicons outline "eye", matching the inline SVG convention already
-         used elsewhere in this app (24x24, stroke currentColor). -->
     <svg
         viewBox="0 0 24 24"
         fill="none"

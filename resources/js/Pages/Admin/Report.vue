@@ -3,19 +3,6 @@ import { Head } from '@inertiajs/vue3'
 import StudioLayout from '@/Layouts/StudioLayout.vue'
 import MoneyFigure from '@/Components/MoneyFigure.vue'
 
-/**
- * The operator view: what users were charged, what Pixelforge charged us, and
- * the difference -- checked against the provider's own record.
- *
- * The delta column is the reason this page exists. Our provider-cost figure is
- * computed from stored token usage and the rate snapshot each generation was
- * created with; Pixelforge's comes from GET /v1/usage. They are compared as
- * exact integers, so a mismatch of a single nanodollar shows up.
- *
- * When the usage endpoint cannot be reached, the comparison is shown as
- * unavailable rather than quietly omitted -- our own numbers are never
- * presented as verified when nothing verified them.
- */
 defineOptions({ layout: StudioLayout })
 
 defineProps({
@@ -65,7 +52,6 @@ defineProps({
         </div>
     </header>
 
-    <!-- Reconciliation state. Three outcomes, each stated plainly. -->
     <div
         class="mt-6 rounded-lg border px-4 py-3 text-sm"
         :class="{
@@ -90,7 +76,6 @@ defineProps({
         </template>
     </div>
 
-    <!-- Per day -->
     <div class="mt-8 overflow-x-auto">
         <table class="w-full min-w-3xl text-sm">
             <thead>
@@ -142,8 +127,6 @@ defineProps({
                         <span v-else class="text-xs text-estimate">unavailable</span>
                     </td>
                     <td class="py-2 text-right">
-                        <!-- Deliberately blank when it agrees: a column of
-                             zeros is noise, so only a real difference shows. -->
                         <span v-if="day.reconciled === true" class="text-xs text-ok">—</span>
                         <MoneyFigure
                             v-else-if="day.delta"
@@ -167,7 +150,6 @@ defineProps({
         </table>
     </div>
 
-    <!-- Per user -->
     <h2 class="mt-12 text-sm font-medium text-body">By user</h2>
 
     <div v-if="report.users.length" class="mt-4 overflow-x-auto">

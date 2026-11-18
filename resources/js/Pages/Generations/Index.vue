@@ -14,12 +14,6 @@ const props = defineProps({
     hasPending: { type: Boolean, default: false },
 })
 
-/**
- * Poll only while the server says something is still in flight.
- *
- * `hasPending` comes back with every reload, so the final poll -- the one that
- * reports everything settled -- is also the one that switches polling off.
- */
 const { polling } = useAdaptivePolling({
     only: ['generations', 'balance', 'hasPending'],
     isActive: () => props.hasPending,
@@ -36,8 +30,6 @@ const rows = computed(() => props.generations.data)
     <div class="flex items-baseline justify-between">
         <h1 class="text-sm font-medium text-body">Your generations</h1>
 
-        <!-- Says plainly whether the page is watching for changes, rather
-             than leaving the user guessing why numbers move on their own. -->
         <span v-if="polling" class="flex items-center gap-1.5 text-xs text-measured">
             <span class="size-1.5 animate-pulse rounded-full bg-current" aria-hidden="true" />
             Watching for updates
@@ -53,7 +45,6 @@ const rows = computed(() => props.generations.data)
         />
     </div>
 
-    <!-- An empty screen is an invitation to act. -->
     <div v-else class="panel mt-4 rounded-lg px-6 py-16 text-center">
         <p class="text-sm text-body">Nothing generated yet.</p>
         <p class="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">

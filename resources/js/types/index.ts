@@ -1,9 +1,5 @@
-/**
- * Props every page receives from HandleInertiaRequests::share().
- *
- * Page-specific props are declared next to the page that uses them; only the
- * genuinely shared shape lives here.
- */
+
+
 export interface AuthUser {
     id: number
     name: string
@@ -22,5 +18,4 @@ export interface SharedPageProps {
     [key: string]: unknown
 }
 
-/** Laravel's validation errors, keyed by field name. */
 export type ValidationErrors = Record<string, string>

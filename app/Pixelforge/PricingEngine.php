@@ -9,14 +9,6 @@ use App\Enums\GenerationSize;
 use App\Enums\TokenType;
 use InvalidArgumentException;
 
-/**
- * Turns token counts into exact money, both before a generation runs (an
- * estimate range) and after it completes (the settled cost).
- *
- * All arithmetic is integer nanodollars. The markup is applied as an exact
- * rational, reduced to lowest terms, so the charge is a whole number of
- * nanodollars or the operation throws -- we never round a user's charge.
- */
 final readonly class PricingEngine
 {
     private int $markupNumerator;
@@ -29,8 +21,6 @@ final readonly class PricingEngine
             throw new InvalidArgumentException('Markup percent cannot be negative.');
         }
 
-        // 25% -> 125/100, reduced to 5/4 so the exactness check is as permissive
-        // as the arithmetic genuinely allows.
         $numerator = 100 + $markupPercent;
         $divisor = self::gcd($numerator, 100);
 
@@ -38,18 +28,11 @@ final readonly class PricingEngine
         $this->markupDenominator = intdiv(100, $divisor);
     }
 
-    /**
-     * What we charge the user for a given provider cost: cost + markup, exact.
-     */
     public function applyMarkup(Money $providerCost): Money
     {
         return $providerCost->withMarkup($this->markupNumerator, $this->markupDenominator);
     }
 
-    /**
-     * The exact cost of a completed generation, from the rate snapshot the
-     * generation was created with -- never from current pricing.
-     */
     public function settle(TokenUsage $usage, Rates $rates): SettledCost
     {
         $providerCost = Money::zero();
@@ -65,14 +48,6 @@ final readonly class PricingEngine
         );
     }
 
-    /**
-     * The cost band for a request that has not run yet.
-     *
-     * Output and reference-image tokens are exact; input text is a +/-15% band
-     * around ceil(chars/4); reasoning is the full per-quality range. The
-     * "expected" figure uses the point text estimate and the midpoint of the
-     * reasoning range.
-     */
     public function estimate(
         PricingCatalog $catalog,
         string $prompt,
@@ -110,7 +85,7 @@ final readonly class PricingEngine
             ],
             TokenType::Reasoning->value => [
                 'min' => $reasoning['min'],
-                // Midpoint, rounded down: a deliberate point estimate, not a promise.
+
                 'expected' => intdiv($reasoning['min'] + $reasoning['max'], 2),
                 'max' => $reasoning['max'],
                 'exact' => false,

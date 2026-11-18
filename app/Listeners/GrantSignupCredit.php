@@ -9,14 +9,6 @@ use App\Models\User;
 use App\Pixelforge\Money;
 use Illuminate\Auth\Events\Registered;
 
-/**
- * Gives a new account a starting balance, so the app is usable the moment you
- * sign in rather than dead until you press "Buy credits".
- *
- * Written through the ledger like any other top-up, so the grant is auditable
- * and the balance cache stays consistent -- there is deliberately no path that
- * sets a balance without a ledger row behind it.
- */
 class GrantSignupCredit
 {
     public function __construct(private readonly LedgerWriter $ledger) {}
