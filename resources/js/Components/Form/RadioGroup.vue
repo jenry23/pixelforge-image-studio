@@ -26,7 +26,7 @@ const uid = useId()
     <fieldset :disabled="disabled">
         <legend class="text-[1.05rem] font-semibold text-white">{{ legend }}</legend>
 
-        <div class="mt-3 flex gap-1 rounded-xl border border-[#262d39] bg-[#101723] p-1">
+        <div class="mt-3 flex gap-1 rounded-xl border border-outline bg-[#101723] p-1">
             <label
                 v-for="option in options"
                 :key="option.value"

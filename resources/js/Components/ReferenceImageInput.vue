@@ -32,8 +32,8 @@ function remove(index) {
 <template>
     <div>
         <div class="flex items-baseline justify-between">
-            <span class="text-sm text-muted">Reference images</span>
-            <span class="text-xs text-dim">
+            <span class="text-[1.05rem] font-semibold text-white">Reference images</span>
+            <span class="text-xs text-[#9aa5b4]">
                 {{ modelValue.length }} of {{ max }}, 765 tokens each
             </span>
         </div>
@@ -50,7 +50,7 @@ function remove(index) {
                     />
                     <button
                         type="button"
-                        class="rounded-md border border-line px-3 text-sm text-muted transition-colors hover:border-fail/50 hover:text-fail"
+                        class="rounded-lg border border-outline px-3 text-sm text-white transition-colors hover:border-fail/60 hover:text-fail"
                         @click="remove(index)"
                     >
                         Remove
@@ -68,9 +68,20 @@ function remove(index) {
         <button
             v-if="canAdd"
             type="button"
-            class="mt-2 text-sm text-measured transition-opacity hover:opacity-80"
+            class="mt-3 inline-flex items-center gap-2 rounded-xl border border-outline px-4 py-2.5 text-sm text-white transition-colors hover:border-[#8a9ffd] hover:text-[#8a9ffd] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8a9ffd]"
             @click="add"
         >
+            <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                class="size-4 shrink-0"
+                aria-hidden="true"
+            >
+                <path d="M12 5v14M5 12h14" />
+            </svg>
             Add a reference image
         </button>
     </div>

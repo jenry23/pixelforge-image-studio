@@ -129,7 +129,7 @@ function submit(): void {
                 </div>
             </div>
 
-            <div class="hidden h-12 w-px bg-[#262d39] sm:block" />
+            <div class="hidden h-12 w-px bg-divider-soft sm:block" />
 
             <div class="flex items-center gap-3">
                 <span class="text-sm text-[#9aa5b4]">Buy credits</span>
@@ -144,7 +144,7 @@ function submit(): void {
                 >
                     <button
                         type="submit"
-                        class="figure rounded-lg border border-[#262d39] bg-[#101723] px-3.5 py-2 text-sm text-white transition-colors hover:border-[#8a9ffd]/60"
+                        class="figure rounded-lg border border-outline bg-[#101723] px-3.5 py-2 text-sm text-white transition-colors hover:border-[#8a9ffd]/60"
                     >
                         ${{ pack }}
                     </button>
@@ -154,7 +154,7 @@ function submit(): void {
     </div>
 
     <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_25rem]">
-        <section class="rounded-2xl border border-[#262d39] bg-[#0f1621] p-6 sm:p-7">
+        <section class="rounded-2xl border border-outline bg-surface p-6 sm:p-7">
             <Form :processing="form.processing" @submit="submit">
                 <FormTextarea
                     v-model="form.prompt"
@@ -190,7 +190,7 @@ function submit(): void {
                 />
 
                 <template #actions>
-                    <div class="mt-7 border-t border-[#262d39] pt-7">
+                    <div class="mt-7 border-t border-divider-soft pt-7">
                         <button
                             type="submit"
                             :disabled="!submittable"
@@ -211,7 +211,7 @@ function submit(): void {
             </Form>
         </section>
 
-        <aside class="rounded-2xl border border-[#262d39] bg-[#0f1621] p-6 sm:p-7">
+        <aside class="rounded-2xl border border-outline bg-surface p-6 sm:p-7">
             <div class="flex items-baseline justify-between">
                 <h2 class="text-[1.15rem] font-semibold text-white">Estimated cost</h2>
                 <span
@@ -234,7 +234,7 @@ function submit(): void {
                     <span class="absolute -top-1 left-0 h-2 w-px bg-[#2f3a4a]" aria-hidden="true" />
                     <span class="absolute -top-1 right-0 h-2 w-px bg-[#2f3a4a]" aria-hidden="true" />
                     <span
-                        class="absolute -top-[3px] size-2 rounded-full bg-[#8a9ffd] ring-2 ring-[#0f1621]"
+                        class="absolute -top-[3px] size-2 rounded-full bg-[#8a9ffd] ring-2 ring-surface"
                         :style="{ left: `calc(${markerPosition}% - 4px)` }"
                         aria-hidden="true"
                     />
@@ -253,7 +253,7 @@ function submit(): void {
                 We reserve the upper estimate and settle the actual cost.
             </p>
 
-            <table class="mt-6 w-full border-t border-[#262d39] text-sm">
+            <table class="mt-6 w-full border-t border-divider-soft text-sm">
                 <thead>
                     <tr class="text-xs text-[#9aa5b4]">
                         <th scope="col" class="py-3 text-left font-medium">Component</th>
@@ -265,7 +265,7 @@ function submit(): void {
                     <tr
                         v-for="row in estimate.breakdown"
                         :key="row.type"
-                        class="border-t border-[#262d39]/70"
+                        class="border-t border-divider-soft"
                     >
                         <th scope="row" class="py-3 pr-3 text-left font-normal text-white">
                             {{ row.label }}
@@ -278,7 +278,7 @@ function submit(): void {
                 </tbody>
             </table>
 
-            <dl class="mt-5 space-y-2 border-t border-[#262d39] pt-5 text-sm">
+            <dl class="mt-5 space-y-2 border-t border-divider-soft pt-5 text-sm">
                 <div class="flex justify-between">
                     <dt class="text-[#c3ccd8]">Provider cost</dt>
                     <dd class="figure text-white">
