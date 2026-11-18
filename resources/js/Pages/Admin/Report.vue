@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Head } from '@inertiajs/vue3'
+import Dropdown from '@/Components/Dropdown.vue'
+import Download from '@/Components/Icons/Download.vue'
 import Pagination from '@/Components/Pagination.vue'
 import TableSkeleton from '@/Components/TableSkeleton.vue'
 import { useSteadyColumns } from '@/Composables/useSteadyColumns'
@@ -90,9 +92,20 @@ const usersSkeleton = [
     { cellClass: 'px-5 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
 ]
 
-defineProps<{ report: Report }>()
+const props = defineProps<{ report: Report }>()
 
 const only = ['report']
+
+const exportParams = {
+    start_date: props.report.start_date,
+    end_date: props.report.end_date,
+}
+
+const exports = [
+    { label: 'Billing report (.xlsx)', href: route('admin.report.export.workbook', exportParams) },
+    { label: 'Daily breakdown (.csv)', href: route('admin.report.export.daily', exportParams) },
+    { label: 'By user (.csv)', href: route('admin.report.export.users', exportParams) },
+]
 </script>
 
 <template>
@@ -103,7 +116,15 @@ const only = ['report']
             <h1 class="text-[2.6rem] font-bold leading-none tracking-tight text-white">Billing</h1>
             <p class="mt-2 text-[1.05rem] text-[#9aa5b4]">Credit spend and provider cost</p>
         </div>
-        <p class="figure text-sm text-[#9aa5b4]">{{ report.period_label }}</p>
+        <div class="flex items-center gap-5">
+            <p class="figure text-sm text-[#9aa5b4]">{{ report.period_label }}</p>
+
+            <Dropdown label="Export" :items="exports" note="Full UTC reporting period">
+                <template #icon>
+                    <Download class="size-4 shrink-0" />
+                </template>
+            </Dropdown>
+        </div>
     </div>
 
     <div class="mt-6 grid gap-5 sm:grid-cols-3">

@@ -9,6 +9,7 @@ use App\Models\Generation;
 use App\Pixelforge\Money;
 use App\Pixelforge\PixelforgeClient;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -28,6 +29,44 @@ final readonly class BillingReport
         int $daysPage = 1,
         int $usersPage = 1,
     ): array {
+        $period = $this->compute($startDate, $endDate);
+
+        return [
+            ...$period['head'],
+            'days' => $this->paginateRows(
+                $period['days'],
+                $daysPage,
+                self::DAYS_PER_PAGE,
+                'days_page',
+            ),
+            'users' => $this->perUserTotals(
+                $period['head']['start_date'],
+                $period['head']['end_date'],
+                $usersPage,
+            ),
+            'totals' => $period['totals'],
+            'reconciliation' => $period['reconciliation'],
+        ];
+    }
+
+    public function full(CarbonImmutable $startDate, CarbonImmutable $endDate): array
+    {
+        $period = $this->compute($startDate, $endDate);
+
+        return [
+            ...$period['head'],
+            'days' => $period['days'],
+            'users' => $this->allUserTotals(
+                $period['head']['start_date'],
+                $period['head']['end_date'],
+            ),
+            'totals' => $period['totals'],
+            'reconciliation' => $period['reconciliation'],
+        ];
+    }
+
+    private function compute(CarbonImmutable $startDate, CarbonImmutable $endDate): array
+    {
         $start = $startDate->toDateString();
         $end = $endDate->toDateString();
 
@@ -73,11 +112,12 @@ final readonly class BillingReport
         $days = array_reverse($days);
 
         return [
-            'start_date' => $start,
-            'end_date' => $end,
-            'period_label' => $this->periodLabel($startDate, $endDate),
-            'days' => $this->paginateRows($days, $daysPage, self::DAYS_PER_PAGE, 'days_page'),
-            'users' => $this->perUserTotals($start, $end, $usersPage),
+            'head' => [
+                'start_date' => $start,
+                'end_date' => $end,
+                'period_label' => $this->periodLabel($startDate, $endDate),
+            ],
+            'days' => $days,
             'totals' => [
                 'generations' => $totals['generations'],
                 'credit_spend' => $this->money(Money::fromNanodollars($totals['spend'])),
@@ -162,9 +202,9 @@ final readonly class BillingReport
             ->all();
     }
 
-    private function perUserTotals(string $start, string $end, int $page): array
+    private function perUserQuery(string $start, string $end): Builder
     {
-        $paginator = Generation::query()
+        return Generation::query()
             ->where('generations.status', GenerationStatus::Succeeded)
             ->whereBetween('billed_on_utc', [$start, $end])
             ->join('users', 'users.id', '=', 'generations.user_id')
@@ -174,10 +214,34 @@ final readonly class BillingReport
             ->selectRaw('COALESCE(SUM(charged_nanodollars), 0) as spend')
             ->selectRaw('COALESCE(SUM(provider_cost_nanodollars), 0) as cost')
             ->orderByDesc(DB::raw('SUM(charged_nanodollars)'))
-            ->orderBy('users.id')
+            ->orderBy('users.id');
+    }
+
+    private function perUserTotals(string $start, string $end, int $page): array
+    {
+        $paginator = $this->perUserQuery($start, $end)
             ->paginate(perPage: self::USERS_PER_PAGE, pageName: 'users_page', page: max(1, $page));
 
-        $data = $paginator->getCollection()->map(fn ($row): array => [
+        $data = $paginator->getCollection()
+            ->map(fn ($row): array => $this->userRow($row))
+            ->values()
+            ->all();
+
+        return $this->withMeta($data, $paginator);
+    }
+
+    private function allUserTotals(string $start, string $end): array
+    {
+        return $this->perUserQuery($start, $end)
+            ->get()
+            ->map(fn ($row): array => $this->userRow($row))
+            ->values()
+            ->all();
+    }
+
+    private function userRow(object $row): array
+    {
+        return [
             'id' => $row->id,
             'name' => $row->name,
             'email' => $row->email,
@@ -185,9 +249,7 @@ final readonly class BillingReport
             'credit_spend' => $this->money(Money::fromNanodollars((int) $row->spend)),
             'provider_cost' => $this->money(Money::fromNanodollars((int) $row->cost)),
             'profit' => $this->money(Money::fromNanodollars((int) $row->spend - (int) $row->cost)),
-        ])->values()->all();
-
-        return $this->withMeta($data, $paginator);
+        ];
     }
 
     private function periodLabel(CarbonImmutable $start, CarbonImmutable $end): string

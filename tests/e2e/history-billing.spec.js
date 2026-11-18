@@ -257,6 +257,58 @@ test.describe('billing', () => {
         await expect(skeletons).toHaveCount(0)
     })
 
+    test('exports the period from a keyboard-accessible menu', async ({ page }) => {
+        const trigger = page.getByRole('button', { name: 'Export' })
+        await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+        await trigger.focus()
+        await page.keyboard.press('ArrowDown')
+
+        const menu = page.getByRole('menu')
+        await expect(menu).toBeVisible()
+        await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+        await expect(menu.getByRole('menuitem')).toHaveText([
+            'Billing report (.xlsx)',
+            'Daily breakdown (.csv)',
+            'By user (.csv)',
+        ])
+        await expect(menu).toContainText('Full UTC reporting period')
+
+        // Opening with the keyboard lands on the first item and End reaches the last.
+        await expect(menu.getByRole('menuitem').first()).toBeFocused()
+        await page.keyboard.press('End')
+        await expect(menu.getByRole('menuitem').last()).toBeFocused()
+
+        await page.keyboard.press('Escape')
+        await expect(menu).toBeHidden()
+        await expect(trigger).toBeFocused()
+    })
+
+    test('exports the whole period no matter which page is open', async ({ page }) => {
+        const download = async () => {
+            await page.getByRole('button', { name: 'Export' }).click()
+            const [file] = await Promise.all([
+                page.waitForEvent('download'),
+                page.getByRole('menuitem', { name: 'Daily breakdown (.csv)' }).click(),
+            ])
+            const stream = await file.createReadStream()
+            let body = ''
+            for await (const chunk of stream) body += chunk
+            return body
+        }
+
+        const fromPageOne = await download()
+
+        await page
+            .locator('nav[aria-label*="days pagination"]')
+            .getByRole('button', { name: 'Next' })
+            .click()
+        await page.waitForURL(/days_page=2/)
+
+        // The file describes the period, so the open page cannot change it.
+        expect(await download()).toBe(fromPageOne)
+    })
+
     test('keeps the UTC window across pages', async ({ page }) => {
         const period = await page.locator('p.figure').first().textContent()
 

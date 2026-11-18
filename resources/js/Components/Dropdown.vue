@@ -1,83 +1,172 @@
-<script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+<script setup lang="ts">
+import { nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
+import ChevronDown from '@/Components/Icons/ChevronDown.vue'
 
-const props = defineProps({
-    align: {
-        type: String,
-        default: 'right',
-    },
-    width: {
-        type: String,
-        default: '48',
-    },
-    contentClasses: {
-        type: String,
-        default: 'py-1 bg-white',
-    },
-});
+export interface DropdownItem {
+    label: string
+    href: string
+}
 
-const closeOnEscape = (e) => {
-    if (open.value && e.key === 'Escape') {
-        open.value = false;
+const props = withDefaults(
+    defineProps<{
+        label: string
+        items: DropdownItem[]
+        note?: string
+        disabled?: boolean
+    }>(),
+    { note: undefined, disabled: false },
+)
+
+const uid = useId()
+const open = ref(false)
+const trigger = ref<HTMLButtonElement | null>(null)
+const menu = ref<HTMLDivElement | null>(null)
+const itemRefs = ref<HTMLAnchorElement[]>([])
+
+function setItemRef(el: unknown, index: number): void {
+    if (el instanceof HTMLAnchorElement) {
+        itemRefs.value[index] = el
     }
-};
+}
 
-onMounted(() => document.addEventListener('keydown', closeOnEscape));
-onUnmounted(() => document.removeEventListener('keydown', closeOnEscape));
+function focusItem(index: number): void {
+    const count = props.items.length
+    const target = ((index % count) + count) % count
 
-const widthClass = computed(() => {
-    return {
-        48: 'w-48',
-    }[props.width.toString()];
-});
+    nextTick(() => itemRefs.value[target]?.focus())
+}
 
-const alignmentClasses = computed(() => {
-    if (props.align === 'left') {
-        return 'ltr:origin-top-left rtl:origin-top-right start-0';
-    } else if (props.align === 'right') {
-        return 'ltr:origin-top-right rtl:origin-top-left end-0';
+function toggle(): void {
+    open.value ? close() : openMenu(0)
+}
+
+function openMenu(index: number): void {
+    if (props.disabled) {
+        return
+    }
+
+    open.value = true
+    focusItem(index)
+}
+
+function close(returnFocus = true): void {
+    if (! open.value) {
+        return
+    }
+
+    open.value = false
+
+    if (returnFocus) {
+        nextTick(() => trigger.value?.focus())
+    }
+}
+
+function onTriggerKeydown(event: KeyboardEvent): void {
+    if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        openMenu(0)
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        openMenu(props.items.length - 1)
+    }
+}
+
+function onItemKeydown(event: KeyboardEvent, index: number): void {
+    switch (event.key) {
+        case 'ArrowDown':
+            event.preventDefault()
+            focusItem(index + 1)
+            break
+        case 'ArrowUp':
+            event.preventDefault()
+            focusItem(index - 1)
+            break
+        case 'Home':
+            event.preventDefault()
+            focusItem(0)
+            break
+        case 'End':
+            event.preventDefault()
+            focusItem(props.items.length - 1)
+            break
+        case 'Escape':
+            event.preventDefault()
+            close()
+            break
+        case 'Tab':
+            close(false)
+            break
+    }
+}
+
+function onDocumentPointerDown(event: PointerEvent): void {
+    const target = event.target as Node
+
+    if (! menu.value?.contains(target) && ! trigger.value?.contains(target)) {
+        close(false)
+    }
+}
+
+watch(open, (isOpen) => {
+    if (isOpen) {
+        document.addEventListener('pointerdown', onDocumentPointerDown)
     } else {
-        return 'origin-top';
+        document.removeEventListener('pointerdown', onDocumentPointerDown)
     }
-});
+})
 
-const open = ref(false);
+watch(
+    () => props.disabled,
+    (isDisabled) => isDisabled && close(false),
+)
+
+onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocumentPointerDown))
 </script>
 
 <template>
     <div class="relative">
-        <div @click="open = !open">
-            <slot name="trigger" />
-        </div>
+        <button
+            :id="`${uid}-trigger`"
+            ref="trigger"
+            type="button"
+            :disabled="disabled"
+            :aria-expanded="open"
+            :aria-controls="`${uid}-menu`"
+            aria-haspopup="menu"
+            class="inline-flex items-center gap-2.5 rounded-lg border border-[#8a9ffd] px-4 py-2 text-sm font-medium text-[#8a9ffd] transition-colors hover:bg-[#8a9ffd]/10 disabled:cursor-not-allowed disabled:border-outline/40 disabled:text-[#5e758c] disabled:hover:bg-transparent"
+            @click="toggle"
+            @keydown="onTriggerKeydown"
+        >
+            <slot name="icon" />
+            {{ label }}
+            <ChevronDown class="size-4 shrink-0 transition-transform" :class="open ? 'rotate-180' : ''" />
+        </button>
 
         <div
-            v-show="open"
-            class="fixed inset-0 z-40"
-            @click="open = false"
-        ></div>
-
-        <Transition
-            enter-active-class="transition ease-out duration-200"
-            enter-from-class="opacity-0 scale-95"
-            enter-to-class="opacity-100 scale-100"
-            leave-active-class="transition ease-in duration-75"
-            leave-from-class="opacity-100 scale-100"
-            leave-to-class="opacity-0 scale-95"
+            v-if="open"
+            :id="`${uid}-menu`"
+            ref="menu"
+            role="menu"
+            :aria-labelledby="`${uid}-trigger`"
+            class="absolute right-0 z-20 mt-2 min-w-[15rem] overflow-hidden rounded-xl border border-outline bg-surface shadow-xl shadow-black/40"
         >
-            <div
-                v-show="open"
-                class="absolute z-50 mt-2 rounded-md shadow-lg"
-                :class="[widthClass, alignmentClasses]"
-                style="display: none"
-                @click="open = false"
+            <a
+                v-for="(item, index) in items"
+                :key="item.href"
+                :ref="(el) => setItemRef(el, index)"
+                :href="item.href"
+                role="menuitem"
+                download
+                class="block px-4 py-2.5 text-sm text-white transition-colors hover:bg-[#8a9ffd]/15 focus-visible:bg-[#8a9ffd]/15"
+                @click="close(false)"
+                @keydown="onItemKeydown($event, index)"
             >
-                <div
-                    class="rounded-md ring-1 ring-black ring-opacity-5"
-                    :class="contentClasses"
-                >
-                    <slot name="content" />
-                </div>
-            </div>
-        </Transition>
+                {{ item.label }}
+            </a>
+
+            <p v-if="note" class="border-t border-divider-soft px-4 py-2.5 text-xs text-[#9aa5b4]">
+                {{ note }}
+            </p>
+        </div>
     </div>
 </template>

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\BillingExportController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\CreditController;
 use App\Http\Controllers\GenerationController;
@@ -30,6 +31,15 @@ Route::middleware(['auth', 'verified', 'admin', 'no-store', 'encrypt-history'])
     ->name('admin.')
     ->group(function () {
         Route::get('/report', ReportController::class)->name('report');
+
+        Route::get('/report/export.xlsx', [BillingExportController::class, 'workbook'])
+            ->name('report.export.workbook');
+
+        Route::get('/report/export/daily.csv', [BillingExportController::class, 'daily'])
+            ->name('report.export.daily');
+
+        Route::get('/report/export/by-user.csv', [BillingExportController::class, 'users'])
+            ->name('report.export.users');
     });
 
 Route::middleware(['auth', 'no-store', 'encrypt-history'])->group(function () {

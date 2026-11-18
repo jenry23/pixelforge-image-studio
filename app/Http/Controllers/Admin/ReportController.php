@@ -6,7 +6,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Reporting\BillingReport;
-use Carbon\CarbonImmutable;
+use App\Reporting\ReportPeriod;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,22 +22,15 @@ class ReportController extends Controller
             'users_page' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $end = isset($validated['end_date'])
-            ? CarbonImmutable::parse($validated['end_date'], 'UTC')
-            : CarbonImmutable::now('UTC');
-
-        $start = isset($validated['start_date'])
-            ? CarbonImmutable::parse($validated['start_date'], 'UTC')
-            : $end->subDays(13);
-
-        if ($start->diffInDays($end) > 91) {
-            $start = $end->subDays(91);
-        }
+        $period = ReportPeriod::fromDates(
+            $validated['start_date'] ?? null,
+            $validated['end_date'] ?? null,
+        );
 
         return Inertia::render('Admin/Report', [
             'report' => $report->build(
-                $start,
-                $end,
+                $period->start,
+                $period->end,
                 (int) ($validated['days_page'] ?? 1),
                 (int) ($validated['users_page'] ?? 1),
             ),
