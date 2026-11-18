@@ -23,6 +23,127 @@ test.describe('history pagination', () => {
         const bar = page.locator('nav[aria-label*="pagination"]')
         await expect(bar.getByRole('button', { name: 'Previous' })).toBeDisabled()
     })
+
+    test('shows a loader and blocks repeat clicks while a page is in flight', async ({ page }) => {
+        // Hold the response so the in-flight state is observable at all.
+        let hold = true
+        await page.route('**/history?**', async (route) => {
+            if (hold) await new Promise((r) => setTimeout(r, 2000))
+            await route.continue()
+        })
+
+        let requests = 0
+        page.on('request', (r) => {
+            if (r.url().includes('/history?')) requests++
+        })
+
+        const bar = page.locator('nav[aria-label*="pagination"]')
+        await bar.getByRole('button', { name: '2', exact: true }).click()
+
+        await expect(bar.locator('p')).toHaveText(/Loading page 2…/)
+        await expect(bar).toHaveAttribute('aria-busy', 'true')
+        await expect(bar.getByRole('status')).toHaveText(/Loading page 2 of \d+/)
+        await expect(page.locator('tbody[aria-hidden="true"]')).toBeVisible()
+
+        // Every control is inert, so a second click cannot race the first.
+        for (const button of await bar.getByRole('button').all()) {
+            await expect(button).toBeDisabled()
+        }
+
+        requests = 0
+        await bar.getByRole('button', { name: 'Next' }).click({ force: true }).catch(() => {})
+        await page.waitForTimeout(250)
+        expect(requests).toBe(0)
+
+        hold = false
+        await page.waitForURL(/page=2/)
+
+        await expect(bar).toHaveAttribute('aria-busy', 'false')
+        await expect(bar.locator('p')).toContainText(/Showing \d+–\d+ of \d+ generations/)
+        await expect(page.locator('tbody[aria-hidden="true"]')).toHaveCount(0)
+        await expect(bar.getByRole('button', { name: '2', exact: true })).toHaveAttribute(
+            'aria-current',
+            'page',
+        )
+    })
+
+    test('keeps the table geometry and scroll position steady while loading', async ({ page }) => {
+        const measure = () =>
+            page.evaluate(() => {
+                const table = document.querySelector('table')
+                const panel = table.closest('div.overflow-hidden')
+                return {
+                    tableHeight: Math.round(table.getBoundingClientRect().height),
+                    columns: [...table.querySelectorAll('thead th')].map((th) =>
+                        Math.round(th.getBoundingClientRect().width),
+                    ),
+                    border: getComputedStyle(panel).borderTopColor,
+                    scrollY: Math.round(window.scrollY),
+                    maxScrollY: Math.max(
+                        0,
+                        document.documentElement.scrollHeight - window.innerHeight,
+                    ),
+                }
+            })
+
+        // Settle the viewport on the footer first, so clicking it cannot be what
+        // moves the page.
+        const next = page
+            .locator('nav[aria-label*="pagination"]')
+            .getByRole('button', { name: 'Next' })
+        await next.scrollIntoViewIfNeeded()
+        await page.waitForTimeout(150)
+        const before = await measure()
+
+        let hold = true
+        await page.route('**/history?**', async (route) => {
+            if (hold) await new Promise((r) => setTimeout(r, 1500))
+            await route.continue()
+        })
+
+        await next.click()
+        await expect(page.locator('tbody[aria-hidden="true"]')).toBeVisible()
+
+        // The skeleton stands in for the rows without moving anything around it.
+        const during = await measure()
+        expect(during.tableHeight).toBe(before.tableHeight)
+        expect(during.columns).toEqual(before.columns)
+        expect(during.border).toBe(before.border)
+
+        expect(during.scrollY).toBe(before.scrollY)
+
+        hold = false
+        await page.waitForURL(/page=2/)
+
+        // The last page holds fewer rows, so the document is genuinely shorter
+        // and the browser clamps; what matters is that nothing reset to the top.
+        const after = await measure()
+        expect(after.scrollY).toBe(Math.min(before.scrollY, after.maxScrollY))
+    })
+
+    test('restores the previous rows and offers a retry when the request fails', async ({ page }) => {
+        const bar = page.locator('nav[aria-label*="pagination"]')
+        const rowsBefore = await page.locator('tbody tr').allTextContents()
+
+        let fail = true
+        await page.route('**/history?**', async (route) => {
+            if (fail) await route.abort('failed')
+            else await route.continue()
+        })
+
+        await bar.getByRole('button', { name: 'Next' }).click()
+
+        await expect(bar.locator('p')).toContainText("Couldn't load page 2.")
+        await expect(bar).toHaveAttribute('aria-busy', 'false')
+        await expect(page.locator('tbody[aria-hidden="true"]')).toHaveCount(0)
+        expect(await page.locator('tbody tr').allTextContents()).toEqual(rowsBefore)
+
+        fail = false
+        await bar.getByRole('button', { name: 'Try again' }).click()
+
+        await page.waitForURL(/page=2/)
+        await expect(bar.locator('p')).toContainText(/Showing \d+–\d+ of \d+ generations/)
+    })
 })
 
 test.describe('the generation preview', () => {
@@ -111,6 +232,29 @@ test.describe('billing', () => {
                 .getByText(/match Pixelforge to the nanodollar|disagree with Pixelforge|unverified/)
                 .textContent(),
         ).toBe(banner)
+    })
+
+    test('loads the daily and By user tables independently', async ({ page }) => {
+        let hold = true
+        await page.route('**/admin/report?**', async (route) => {
+            if (hold) await new Promise((r) => setTimeout(r, 1500))
+            await route.continue()
+        })
+
+        const days = page.locator('nav[aria-label*="days pagination"]')
+        await days.getByRole('button', { name: 'Next' }).click()
+
+        await expect(days).toHaveAttribute('aria-busy', 'true')
+        await expect(days.locator('p')).toHaveText(/Loading page 2…/)
+
+        // Only the daily table is standing in; By user keeps its real rows.
+        const skeletons = page.locator('tbody[aria-hidden="true"]')
+        await expect(skeletons).toHaveCount(1)
+        await expect(page.getByText('user@example.com')).toBeVisible()
+
+        hold = false
+        await page.waitForURL(/days_page=2/)
+        await expect(skeletons).toHaveCount(0)
     })
 
     test('keeps the UTC window across pages', async ({ page }) => {

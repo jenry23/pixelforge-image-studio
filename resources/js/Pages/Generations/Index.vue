@@ -3,9 +3,11 @@ import { computed, nextTick, ref } from 'vue'
 import { Head, router } from '@inertiajs/vue3'
 import GenerationModal from '@/Components/GenerationModal.vue'
 import Pagination from '@/Components/Pagination.vue'
+import TableSkeleton from '@/Components/TableSkeleton.vue'
 import StatusPill from '@/Components/StatusPill.vue'
 import StudioLayout from '@/Layouts/StudioLayout.vue'
 import { useAdaptivePolling } from '@/Composables/useAdaptivePolling'
+import { useSteadyColumns } from '@/Composables/useSteadyColumns'
 import type { BalanceSummary, GenerationRow } from '@/types/generations'
 import type { PaginationMeta } from '@/types/pagination'
 
@@ -18,13 +20,37 @@ interface Props {
 
 defineOptions({ layout: StudioLayout })
 
+const paging = ref(false)
+
+const historyTable = ref<HTMLTableElement | null>(null)
+const historyColumns = useSteadyColumns(historyTable)
+
+function onPaging(loading: boolean): void {
+    historyColumns.onLoading(loading)
+    paging.value = loading
+}
+
+const historySkeleton = [
+    {
+        cellClass: 'px-5 py-2',
+        boxClass: 'h-[7.2rem]',
+        pillClass: 'size-[7.2rem] rounded-xl',
+    },
+    { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[27rem]' },
+    { cellClass: 'px-3 py-2', pillClass: 'h-[1.6rem] rounded-full w-[6.25rem]' },
+    { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[6rem]' },
+    { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[4.4rem]' },
+    { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[6rem]' },
+    { cellClass: 'px-5 py-2', pillClass: 'h-2.5 rounded-full w-[9.25rem]', align: 'right' as const },
+]
+
 const props = defineProps<Props>()
 
 const rows = computed(() => props.generations.data)
 
 const { polling } = useAdaptivePolling({
     only: ['generations', 'balance', 'hasPending'],
-    isActive: () => props.hasPending,
+    isActive: () => props.hasPending && ! paging.value,
 })
 
 const selected = ref<GenerationRow | null>(null)
@@ -98,7 +124,18 @@ function buyCredits(amount: string): void {
 
     <div class="mt-4 overflow-hidden rounded-2xl border border-outline bg-surface">
         <div v-if="rows.length" class="overflow-x-auto">
-            <table class="w-full min-w-[56rem] text-sm">
+            <table
+                ref="historyTable"
+                class="w-full min-w-[56rem] text-sm"
+                :style="historyColumns.widths.value.length ? { tableLayout: 'fixed' } : undefined"
+            >
+                <colgroup v-if="historyColumns.widths.value.length">
+                    <col
+                        v-for="(width, index) in historyColumns.widths.value"
+                        :key="index"
+                        :style="{ width: `${width}px` }"
+                    />
+                </colgroup>
                 <thead>
                     <tr class="border-b border-outline text-white">
                         <th scope="col" class="px-5 py-3.5 text-left font-medium">Image</th>
@@ -110,7 +147,14 @@ function buyCredits(amount: string): void {
                         <th scope="col" class="px-5 py-3.5 text-right font-medium">Charged</th>
                     </tr>
                 </thead>
-                <tbody>
+                <TableSkeleton
+                    v-if="paging"
+                    :rows="rows.length"
+                    :columns="historySkeleton"
+                    row-class="border-b border-divider-soft last:border-b-0"
+                />
+
+                <tbody v-else>
                     <tr
                         v-for="generation in rows"
                         :key="generation.id"
@@ -213,6 +257,7 @@ function buyCredits(amount: string): void {
                 :only="['generations', 'balance', 'hasPending']"
                 noun="generation"
                 noun-plural="generations"
+                @loading="onPaging"
             />
         </div>
     </div>

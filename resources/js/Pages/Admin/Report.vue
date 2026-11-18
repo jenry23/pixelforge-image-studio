@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { Head } from '@inertiajs/vue3'
 import Pagination from '@/Components/Pagination.vue'
+import TableSkeleton from '@/Components/TableSkeleton.vue'
+import { useSteadyColumns } from '@/Composables/useSteadyColumns'
 import StudioLayout from '@/Layouts/StudioLayout.vue'
 import type { PaginationMeta } from '@/types/pagination'
 
@@ -49,6 +52,43 @@ interface Report {
 }
 
 defineOptions({ layout: StudioLayout })
+
+const pagingDays = ref(false)
+const pagingUsers = ref(false)
+
+const daysTable = ref<HTMLTableElement | null>(null)
+const usersTable = ref<HTMLTableElement | null>(null)
+
+const daysColumns = useSteadyColumns(daysTable)
+const usersColumns = useSteadyColumns(usersTable)
+
+function onDaysLoading(loading: boolean): void {
+    daysColumns.onLoading(loading)
+    pagingDays.value = loading
+}
+
+function onUsersLoading(loading: boolean): void {
+    usersColumns.onLoading(loading)
+    pagingUsers.value = loading
+}
+
+const daysSkeleton = [
+    { cellClass: 'px-5 py-2', pillClass: 'h-2.5 rounded-full w-[5.5rem]' },
+    { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[1.75rem]', align: 'right' as const },
+    { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
+    { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
+    { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
+    { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
+    { cellClass: 'px-5 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
+]
+
+const usersSkeleton = [
+    { cellClass: 'px-5 py-2', pillClass: 'h-2.5 rounded-full w-[14rem]' },
+    { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[1.75rem]', align: 'right' as const },
+    { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
+    { cellClass: 'px-3 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
+    { cellClass: 'px-5 py-2', pillClass: 'h-2.5 rounded-full w-[5rem]', align: 'right' as const },
+]
 
 defineProps<{ report: Report }>()
 
@@ -124,7 +164,18 @@ const only = ['report']
 
     <div class="mt-4 overflow-hidden rounded-xl border border-outline bg-surface">
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[52rem] text-[0.95rem]">
+            <table
+                ref="daysTable"
+                class="w-full min-w-[52rem] text-[0.95rem]"
+                :style="daysColumns.widths.value.length ? { tableLayout: 'fixed' } : undefined"
+            >
+                <colgroup v-if="daysColumns.widths.value.length">
+                    <col
+                        v-for="(width, index) in daysColumns.widths.value"
+                        :key="index"
+                        :style="{ width: `${width}px` }"
+                    />
+                </colgroup>
                 <thead>
                     <tr class="border-b border-outline text-white">
                         <th scope="col" class="px-5 py-3 text-left font-medium">UTC day</th>
@@ -136,7 +187,15 @@ const only = ['report']
                         <th scope="col" class="px-5 py-3 text-right font-medium">Profit</th>
                     </tr>
                 </thead>
-                <tbody>
+                <TableSkeleton
+                    v-if="pagingDays"
+                    :rows="report.days.data.length"
+                    :columns="daysSkeleton"
+                    box-class="h-[1.5em]"
+                    row-class="border-b border-divider-soft last:border-b-0"
+                />
+
+                <tbody v-else>
                     <tr
                         v-for="day in report.days.data"
                         :key="day.date"
@@ -178,6 +237,7 @@ const only = ['report']
                 :only="only"
                 noun="day"
                 noun-plural="days"
+                @loading="onDaysLoading"
             />
         </div>
     </div>
@@ -186,7 +246,18 @@ const only = ['report']
 
     <div class="mt-4 overflow-hidden rounded-xl border border-outline bg-surface">
         <div v-if="report.users.data.length" class="overflow-x-auto">
-            <table class="w-full min-w-[40rem] text-[0.95rem]">
+            <table
+                ref="usersTable"
+                class="w-full min-w-[40rem] text-[0.95rem]"
+                :style="usersColumns.widths.value.length ? { tableLayout: 'fixed' } : undefined"
+            >
+                <colgroup v-if="usersColumns.widths.value.length">
+                    <col
+                        v-for="(width, index) in usersColumns.widths.value"
+                        :key="index"
+                        :style="{ width: `${width}px` }"
+                    />
+                </colgroup>
                 <thead>
                     <tr class="border-b border-outline text-white">
                         <th scope="col" class="px-5 py-3 text-left font-medium">User</th>
@@ -196,7 +267,15 @@ const only = ['report']
                         <th scope="col" class="px-5 py-3 text-right font-medium">Profit</th>
                     </tr>
                 </thead>
-                <tbody>
+                <TableSkeleton
+                    v-if="pagingUsers"
+                    :rows="report.users.data.length"
+                    :columns="usersSkeleton"
+                    box-class="h-[1.5em]"
+                    row-class="border-b border-divider-soft last:border-b-0"
+                />
+
+                <tbody v-else>
                     <tr
                         v-for="user in report.users.data"
                         :key="user.id"
@@ -230,6 +309,7 @@ const only = ['report']
                 :only="only"
                 noun="user"
                 noun-plural="users"
+                @loading="onUsersLoading"
             />
         </div>
     </div>
